@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/kevinsuu/OrderManagerSystem/order-service/internal/model"
 	"github.com/kevinsuu/OrderManagerSystem/order-service/internal/repository"
@@ -32,11 +31,11 @@ type OrderService interface {
 
 type orderService struct {
 	repo  repository.OrderRepository
-	redis *redis.Client
+	redis *repository.RedisRepository
 }
 
 // NewOrderService 創建訂單服務實例
-func NewOrderService(repo repository.OrderRepository, redis *redis.Client) OrderService {
+func NewOrderService(repo repository.OrderRepository, redis *repository.RedisRepository) OrderService {
 	return &orderService{
 		repo:  repo,
 		redis: redis,
@@ -76,7 +75,7 @@ func (s *orderService) CreateOrder(ctx context.Context, req *model.CreateOrderRe
 func (s *orderService) GetOrder(ctx context.Context, id string) (*model.OrderResponse, error) {
 	// 嘗試從快取獲取
 	cacheKey := fmt.Sprintf("order:%s", id)
-	if cached, err := s.redis.Get(ctx, cacheKey).Result(); err == nil {
+	if cached, err := s.redis.Get(ctx, cacheKey); err == nil {
 		var order model.OrderResponse
 		if err := json.Unmarshal([]byte(cached), &order); err == nil {
 			return &order, nil

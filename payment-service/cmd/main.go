@@ -10,11 +10,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v8"
-	"payment-service/internal/config"
-	"payment-service/internal/handler"
-	"payment-service/internal/repository"
-	"payment-service/internal/service"
+	"github.com/kevinsuu/OrderManagerSystem/payment-service/internal/config"
+	"github.com/kevinsuu/OrderManagerSystem/payment-service/internal/handler"
+	"github.com/kevinsuu/OrderManagerSystem/payment-service/internal/repository"
+	"github.com/kevinsuu/OrderManagerSystem/payment-service/internal/service"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -95,14 +94,8 @@ func initDB(cfg *config.Config) (*gorm.DB, error) {
 }
 
 // initRedis 初始化 Redis 客戶端
-func initRedis(cfg *config.Config) *redis.Client {
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     cfg.Redis.Address,
-		Password: cfg.Redis.Password,
-		DB:       cfg.Redis.DB,
-	})
-
-	return rdb
+func initRedis(cfg *config.Config) repository.RedisRepository {
+	return repository.NewRedisRepository(cfg.Redis)
 }
 
 // setupRouter 設置路由

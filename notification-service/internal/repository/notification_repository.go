@@ -6,7 +6,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/kevinsuu/OrderManagerSystem/notification-service/internal/model"
 	"gorm.io/gorm"
 )
@@ -28,11 +27,11 @@ type NotificationRepository interface {
 
 type notificationRepository struct {
 	db    *gorm.DB
-	redis *redis.Client
+	redis RedisRepository
 }
 
 // NewNotificationRepository 創建通知存儲實例
-func NewNotificationRepository(db *gorm.DB, redis *redis.Client) NotificationRepository {
+func NewNotificationRepository(db *gorm.DB, redis RedisRepository) NotificationRepository {
 	return &notificationRepository{
 		db:    db,
 		redis: redis,
@@ -214,22 +213,19 @@ func (r *notificationRepository) addToPendingQueue(ctx context.Context, notifica
 	score := float64(time.Now().Unix())
 	member := notification.ID
 
-	return r.redis.ZAdd(ctx, key, &redis.Z{
-		Score:  score,
-		Member: member,
-	}).Err()
+	return r.redis.ZAdd(ctx, key, member, score)
 }
 
 // getFromCache 從快取獲取通知
 func (r *notificationRepository) getFromCache(ctx context.Context, id string) (*model.Notification, error) {
 	key := "notification:" + id
-	data, err := r.redis.Get(ctx, key).Bytes()
+	data, err := r.redis.Get(ctx, key)
 	if err != nil {
 		return nil, err
 	}
 
 	var notification model.Notification
-	if err := json.Unmarshal(data, &notification); err != nil {
+	if err := json.Unmarshal([]byte(data), &notification); err != nil {
 		return nil, err
 	}
 
@@ -244,5 +240,5 @@ func (r *notificationRepository) setCache(ctx context.Context, notification *mod
 		return err
 	}
 
-	return r.redis.Set(ctx, key, data, 1*time.Hour).Err()
+	return r.redis.Set(ctx, key, data, 1*time.Hour)
 }

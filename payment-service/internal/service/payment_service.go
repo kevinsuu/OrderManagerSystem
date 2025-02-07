@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/kevinsuu/OrderManagerSystem/payment-service/internal/model"
 	"github.com/kevinsuu/OrderManagerSystem/payment-service/internal/repository"
@@ -33,11 +32,11 @@ type PaymentService interface {
 
 type paymentService struct {
 	repo  repository.PaymentRepository
-	redis *redis.Client
+	redis repository.RedisRepository
 }
 
 // NewPaymentService 創建支付服務實例
-func NewPaymentService(repo repository.PaymentRepository, redis *redis.Client) PaymentService {
+func NewPaymentService(repo repository.PaymentRepository, redis repository.RedisRepository) PaymentService {
 	return &paymentService{
 		repo:  repo,
 		redis: redis,
@@ -72,7 +71,7 @@ func (s *paymentService) CreatePayment(ctx context.Context, req *model.CreatePay
 func (s *paymentService) GetPayment(ctx context.Context, id string) (*model.PaymentResponse, error) {
 	// 嘗試從快取獲取
 	cacheKey := fmt.Sprintf("payment:%s", id)
-	if cached, err := s.redis.Get(ctx, cacheKey).Result(); err == nil {
+	if cached, err := s.redis.Get(ctx, cacheKey); err == nil {
 		var response model.PaymentResponse
 		if err := json.Unmarshal([]byte(cached), &response); err == nil {
 			return &response, nil

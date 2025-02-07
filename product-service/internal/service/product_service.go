@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/kevinsuu/OrderManagerSystem/product-service/internal/model"
 	"github.com/kevinsuu/OrderManagerSystem/product-service/internal/repository"
@@ -32,11 +31,11 @@ type ProductService interface {
 
 type productService struct {
 	repo  repository.ProductRepository
-	redis *redis.Client
+	redis repository.RedisRepository
 }
 
 // NewProductService 創建產品服務實例
-func NewProductService(repo repository.ProductRepository, redis *redis.Client) ProductService {
+func NewProductService(repo repository.ProductRepository, redis repository.RedisRepository) ProductService {
 	return &productService{
 		repo:  repo,
 		redis: redis,
@@ -89,7 +88,7 @@ func (s *productService) CreateProduct(ctx context.Context, req *model.CreatePro
 func (s *productService) GetProduct(ctx context.Context, id string) (*model.ProductResponse, error) {
 	// 嘗試從快取獲取
 	cacheKey := fmt.Sprintf("product:%s", id)
-	if cached, err := s.redis.Get(ctx, cacheKey).Result(); err == nil {
+	if cached, err := s.redis.Get(ctx, cacheKey); err == nil {
 		var response model.ProductResponse
 		if err := json.Unmarshal([]byte(cached), &response); err == nil {
 			return &response, nil

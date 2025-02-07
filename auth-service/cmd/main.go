@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/kevinsuu/OrderManagerSystem/auth-service/internal/config"
@@ -19,18 +20,12 @@ func main() {
 
 	// 初始化資料庫連接
 	db := repository.NewPostgresDB(cfg.Database)
-	defer db.Close()
-
-	// 初始化 Redis 連接
-	redis := repository.NewRedisClient(cfg.Redis)
-	defer redis.Close()
 
 	// 初始化存儲層
 	userRepo := repository.NewUserRepository(db)
-	tokenRepo := repository.NewTokenRepository(redis)
 
 	// 初始化服務層
-	authService := service.NewAuthService(userRepo, tokenRepo)
+	authService := service.NewAuthService(userRepo, "your-secret-key", 24*time.Hour)
 
 	// 初始化 HTTP 處理器
 	handler := handler.NewHandler(authService)
@@ -49,16 +44,17 @@ func main() {
 		{
 			auth.POST("/register", handler.Register)
 			auth.POST("/login", handler.Login)
-			auth.POST("/logout", handler.Logout)
 			auth.POST("/refresh", handler.RefreshToken)
 		}
 
+		// 健康檢查
+		api.GET("/health", handler.HealthCheck)
+		
 		// 需要認證的路由
 		secured := api.Group("/")
-		secured.Use(handler.AuthMiddleware())
 		{
-			secured.GET("/me", handler.GetUserProfile)
-			secured.PUT("/me", handler.UpdateUserProfile)
+			secured.GET("/validate", handler.ValidateToken)
+			secured.GET("/user/:id", handler.GetUser)
 		}
 	}
 

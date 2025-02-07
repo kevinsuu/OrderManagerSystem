@@ -1,4 +1,4 @@
-module payment-service
+module github.com/kevinsuu/OrderManagerSystem/payment-service
 
 go 1.21
 

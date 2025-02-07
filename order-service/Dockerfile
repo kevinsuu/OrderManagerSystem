@@ -1,18 +1,14 @@
-FROM golang:1.21-alpine AS builder
+FROM golang:1.22-alpine AS builder
 
 WORKDIR /app
 
-# 複製 go mod 和 sum 文件
-COPY go.mod go.sum ./
-
-# 下載依賴
-RUN go mod download
-
-# 複製源代碼
+# 複製所有源代碼
 COPY . .
 
-# 構建應用
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/order-service ./cmd/main.go
+# 下載依賴並構建
+RUN go mod download -x && \
+    go mod tidy && \
+    CGO_ENABLED=0 GOOS=linux go build -o /app/order-service ./cmd/main.go
 
 # 最終階段
 FROM alpine:latest
@@ -23,7 +19,7 @@ WORKDIR /app
 COPY --from=builder /app/order-service .
 
 # 暴露端口
-EXPOSE 8082
+EXPOSE 8083
 
 # 運行應用
 CMD ["./order-service"]

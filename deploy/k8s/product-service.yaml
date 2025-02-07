@@ -4,7 +4,7 @@ metadata:
   name: product-service-config
   namespace: order-system
 data:
-  SERVER_ADDRESS: ":8082"
+  SERVER_ADDRESS: ":8083"
   DB_HOST: "postgres-product"
   DB_PORT: "5432"
   DB_NAME: "product_service"
@@ -20,8 +20,8 @@ metadata:
   namespace: order-system
 type: Opaque
 data:
-  DB_USER: cG9zdGdyZXM=  # postgres
-  DB_PASSWORD: cG9zdGdyZXM=  # postgres
+  DB_USER: cG9zdGdyZXM= # postgres
+  DB_PASSWORD: cG9zdGdyZXM= # postgres
   REDIS_PASSWORD: ""
 ---
 apiVersion: apps/v1
@@ -42,42 +42,42 @@ spec:
         app: product-service
     spec:
       containers:
-      - name: product-service
-        image: yourusername/product-service:latest
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 8082
-        envFrom:
-        - configMapRef:
-            name: product-service-config
-        - secretRef:
-            name: product-service-secret
-        resources:
-          requests:
-            cpu: "100m"
-            memory: "128Mi"
-          limits:
-            cpu: "500m"
-            memory: "512Mi"
-        volumeMounts:
-        - name: product-images
-          mountPath: /app/images
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8082
-          initialDelaySeconds: 5
-          periodSeconds: 10
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8082
-          initialDelaySeconds: 15
-          periodSeconds: 20
+        - name: product-service
+          image: yourusername/product-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8083
+          envFrom:
+            - configMapRef:
+                name: product-service-config
+            - secretRef:
+                name: product-service-secret
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          volumeMounts:
+            - name: product-images
+              mountPath: /app/images
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8083
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8083
+            initialDelaySeconds: 15
+            periodSeconds: 20
       volumes:
-      - name: product-images
-        persistentVolumeClaim:
-          claimName: product-images-pvc
+        - name: product-images
+          persistentVolumeClaim:
+            claimName: product-images-pvc
 ---
 apiVersion: v1
 kind: Service
@@ -88,8 +88,8 @@ spec:
   selector:
     app: product-service
   ports:
-  - port: 8082
-    targetPort: 8082
+    - port: 8083
+      targetPort: 8083
   type: ClusterIP
 ---
 apiVersion: apps/v1
@@ -108,30 +108,30 @@ spec:
         app: postgres-product
     spec:
       containers:
-      - name: postgres
-        image: postgres:15-alpine
-        ports:
-        - containerPort: 5432
-        env:
-        - name: POSTGRES_DB
-          value: product_service
-        - name: POSTGRES_USER
-          valueFrom:
-            secretKeyRef:
-              name: product-service-secret
-              key: DB_USER
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: product-service-secret
-              key: DB_PASSWORD
-        volumeMounts:
-        - name: postgres-storage
-          mountPath: /var/lib/postgresql/data
+        - name: postgres
+          image: postgres:15-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: product_service
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: product-service-secret
+                  key: DB_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: product-service-secret
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
       volumes:
-      - name: postgres-storage
-        persistentVolumeClaim:
-          claimName: postgres-product-pvc
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-product-pvc
 ---
 apiVersion: v1
 kind: Service
@@ -142,8 +142,8 @@ spec:
   selector:
     app: postgres-product
   ports:
-  - port: 5432
-    targetPort: 5432
+    - port: 5432
+      targetPort: 5432
   type: ClusterIP
 ---
 apiVersion: v1
@@ -174,17 +174,17 @@ spec:
         app: redis-product
     spec:
       containers:
-      - name: redis
-        image: redis:7-alpine
-        ports:
-        - containerPort: 6379
-        volumeMounts:
-        - name: redis-storage
-          mountPath: /data
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+          volumeMounts:
+            - name: redis-storage
+              mountPath: /data
       volumes:
-      - name: redis-storage
-        persistentVolumeClaim:
-          claimName: redis-product-pvc
+        - name: redis-storage
+          persistentVolumeClaim:
+            claimName: redis-product-pvc
 ---
 apiVersion: v1
 kind: Service
@@ -195,8 +195,8 @@ spec:
   selector:
     app: redis-product
   ports:
-  - port: 6379
-    targetPort: 6379
+    - port: 6379
+      targetPort: 6379
   type: ClusterIP
 ---
 apiVersion: v1

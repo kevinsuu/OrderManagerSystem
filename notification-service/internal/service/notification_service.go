@@ -5,7 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
+	"strings"
+	"text/template"
 	"time"
 
 	"github.com/google/uuid"
