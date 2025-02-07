@@ -31,7 +31,7 @@ type DatabaseConfig struct {
 
 // RedisConfig Redis配置
 type RedisConfig struct {
-	Address  string
+	Addr     string
 	Password string
 	DB       int
 }
@@ -96,10 +96,14 @@ func loadDatabaseConfig() DatabaseConfig {
 
 // loadRedisConfig 加載Redis配置
 func loadRedisConfig() RedisConfig {
-	db, _ := strconv.Atoi(getEnv("REDIS_DB", "0"))
+	db, err := strconv.Atoi(getEnv("REDIS_DB", "0"))
+	if err != nil {
+		log.Printf("Warning: Invalid REDIS_DB value, using default (0)")
+		db = 0
+	}
 
 	return RedisConfig{
-		Address:  getEnv("REDIS_ADDRESS", "localhost:6379"),
+		Addr:     getEnv("REDIS_ADDR", "localhost:6379"),
 		Password: getEnv("REDIS_PASSWORD", ""),
 		DB:       db,
 	}

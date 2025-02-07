@@ -5,8 +5,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/kevinsuu/OrderManagerSystem/auth-service/internal/config"
-	"github.com/kevinsuu/OrderManagerSystem/auth-service/internal/model"
+	"github.com/kevinsuu/OrderManagerSystem/order-service/internal/config"
+	"github.com/kevinsuu/OrderManagerSystem/order-service/internal/model"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -29,7 +29,7 @@ func NewPostgresDB(cfg config.DatabaseConfig) *gorm.DB {
 	sqlDB.SetConnMaxLifetime(time.Duration(cfg.ConnMaxLifetimeMinutes) * time.Minute)
 
 	// 自動遷移數據庫結構
-	err = db.AutoMigrate(&model.User{})
+	err = db.AutoMigrate(&model.Order{})
 	if err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}

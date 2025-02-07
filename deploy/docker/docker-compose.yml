@@ -17,76 +17,137 @@ services:
   auth-service:
     build: ../../auth-service
     environment:
-      - DB_HOST=postgres
+      - DB_HOST=postgres-auth
       - DB_PORT=5432
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=auth_db
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
     depends_on:
-      - postgres
+      - postgres-auth
       - redis
 
   # Order Service
   order-service:
     build: ../../order-service
     environment:
-      - DB_HOST=postgres
+      - DB_HOST=postgres-order
       - DB_PORT=5432
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=order_db
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
     depends_on:
-      - postgres
+      - postgres-order
       - redis
 
   # Product Service
   product-service:
     build: ../../product-service
     environment:
-      - DB_HOST=postgres
+      - DB_HOST=postgres-product
       - DB_PORT=5432
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=product_db
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
     depends_on:
-      - postgres
+      - postgres-product
+      - redis
 
   # Payment Service
   payment-service:
     build: ../../payment-service
     environment:
-      - DB_HOST=postgres
+      - DB_HOST=postgres-payment
       - DB_PORT=5432
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=payment_db
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
     depends_on:
-      - postgres
+      - postgres-payment
+      - redis
 
   # Notification Service
   notification-service:
     build: ../../notification-service
     environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - DB_HOST=postgres-notification
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=notification_db
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
     depends_on:
+      - postgres-notification
       - redis
 
-  # PostgreSQL
-  postgres:
+  # PostgreSQL Databases
+  postgres-auth:
     image: postgres:16-alpine
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_MULTIPLE_DATABASES=auth_db,order_db,product_db,payment_db
+      - POSTGRES_DB=auth_db
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_auth_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5437:5432"
+
+  postgres-order:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=order_db
+    volumes:
+      - postgres_order_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+
+  postgres-product:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=product_db
+    volumes:
+      - postgres_product_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+
+  postgres-payment:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=payment_db
+    volumes:
+      - postgres_payment_data:/var/lib/postgresql/data
+    ports:
+      - "5435:5432"
+
+  postgres-notification:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=notification_db
+    volumes:
+      - postgres_notification_data:/var/lib/postgresql/data
+    ports:
+      - "5436:5432"
 
   # Redis
   redis:
@@ -113,5 +174,9 @@ services:
       - prometheus
 
 volumes:
-  postgres_data:
+  postgres_auth_data:
+  postgres_order_data:
+  postgres_product_data:
+  postgres_payment_data:
+  postgres_notification_data:
   redis_data:

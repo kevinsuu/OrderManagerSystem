@@ -1,4 +1,4 @@
-module notification-service
+module github.com/kevinsuu/OrderManagerSystem/notification-service
 
 go 1.21
 

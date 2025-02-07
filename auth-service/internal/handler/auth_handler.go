@@ -142,3 +142,4 @@ func (h *Handler) GetUser(c *gin.Context) {
 // HealthCheck 健康檢查
 func (h *Handler) HealthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}

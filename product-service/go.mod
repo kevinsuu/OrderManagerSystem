@@ -1,4 +1,4 @@
-module product-service
+module github.com/kevinsuu/OrderManagerSystem/product-service
 
 go 1.21
 

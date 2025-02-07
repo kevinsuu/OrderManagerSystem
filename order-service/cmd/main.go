@@ -7,10 +7,10 @@ import (
 	"syscall"
 
 	"github.com/gin-gonic/gin"
-	"order-service/internal/config"
-	"order-service/internal/handler"
-	"order-service/internal/repository"
-	"order-service/internal/service"
+	"github.com/kevinsuu/OrderManagerSystem/order-service/internal/config"
+	"github.com/kevinsuu/OrderManagerSystem/order-service/internal/handler"
+	"github.com/kevinsuu/OrderManagerSystem/order-service/internal/repository"
+	"github.com/kevinsuu/OrderManagerSystem/order-service/internal/service"
 )
 
 func main() {
@@ -19,17 +19,16 @@ func main() {
 
 	// 初始化資料庫連接
 	db := repository.NewPostgresDB(cfg.Database)
-	defer db.Close()
 
 	// 初始化 Redis (用於快取)
-	redis := repository.NewRedisClient(cfg.Redis)
-	defer redis.Close()
+	redisClient := repository.NewRedisRepository(cfg.Redis)
+	defer redisClient.Close()
 
 	// 初始化存儲層
 	orderRepo := repository.NewOrderRepository(db)
 	
 	// 初始化服務層
-	orderService := service.NewOrderService(orderRepo, redis)
+	orderService := service.NewOrderService(orderRepo, redisClient)
 
 	// 初始化 HTTP 處理器
 	handler := handler.NewHandler(orderService)

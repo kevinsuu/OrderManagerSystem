@@ -10,11 +10,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v8"
-	"notification-service/internal/config"
-	"notification-service/internal/handler"
-	"notification-service/internal/repository"
-	"notification-service/internal/service"
+	"github.com/kevinsuu/OrderManagerSystem/notification-service/internal/config"
+	"github.com/kevinsuu/OrderManagerSystem/notification-service/internal/handler"
+	"github.com/kevinsuu/OrderManagerSystem/notification-service/internal/repository"
+	"github.com/kevinsuu/OrderManagerSystem/notification-service/internal/service"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -33,7 +32,7 @@ func main() {
 	}
 
 	// 初始化 Redis
-	rdb := initRedis(cfg)
+	rdb := repository.NewRedisRepository(cfg.Redis)
 
 	// 初始化依賴
 	notificationRepo := repository.NewNotificationRepository(db, rdb)
@@ -97,16 +96,6 @@ func initDB(cfg *config.Config) (*gorm.DB, error) {
 	return db, nil
 }
 
-// initRedis 初始化 Redis 客戶端
-func initRedis(cfg *config.Config) *redis.Client {
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     cfg.Redis.Address,
-		Password: cfg.Redis.Password,
-		DB:       cfg.Redis.DB,
-	})
-
-	return rdb
-}
 
 // setupRouter 設置路由
 func setupRouter(h *handler.Handler) *gin.Engine {
