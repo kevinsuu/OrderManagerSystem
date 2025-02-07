@@ -1,0 +1,212 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: notification-service-config
+  namespace: order-system
+data:
+  SERVER_ADDRESS: ":8084"
+  DB_HOST: "postgres-notification"
+  DB_PORT: "5432"
+  DB_NAME: "notification_service"
+  DB_SSLMODE: "disable"
+  REDIS_ADDRESS: "redis-notification:6379"
+  EMAIL_HOST: "smtp.gmail.com"
+  EMAIL_PORT: "587"
+  SMS_PROVIDER: "twilio"
+  PUSH_PROVIDER: "firebase"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: notification-service-secret
+  namespace: order-system
+type: Opaque
+data:
+  DB_USER: cG9zdGdyZXM=  # postgres
+  DB_PASSWORD: cG9zdGdyZXM=  # postgres
+  REDIS_PASSWORD: ""
+  EMAIL_USERNAME: ""
+  EMAIL_PASSWORD: ""
+  SMS_API_KEY: ""
+  SMS_API_SECRET: ""
+  PUSH_API_KEY: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: order-system
+  labels:
+    app: notification-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+      - name: notification-service
+        image: yourusername/notification-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8084
+        envFrom:
+        - configMapRef:
+            name: notification-service-config
+        - secretRef:
+            name: notification-service-secret
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8084
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8084
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: order-system
+spec:
+  selector:
+    app: notification-service
+  ports:
+  - port: 8084
+    targetPort: 8084
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-notification
+  namespace: order-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-notification
+  template:
+    metadata:
+      labels:
+        app: postgres-notification
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: notification_service
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: notification-service-secret
+              key: DB_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: notification-service-secret
+              key: DB_PASSWORD
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-notification-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-notification
+  namespace: order-system
+spec:
+  selector:
+    app: postgres-notification
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-notification-pvc
+  namespace: order-system
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-notification
+  namespace: order-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-notification
+  template:
+    metadata:
+      labels:
+        app: redis-notification
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        volumeMounts:
+        - name: redis-storage
+          mountPath: /data
+      volumes:
+      - name: redis-storage
+        persistentVolumeClaim:
+          claimName: redis-notification-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-notification
+  namespace: order-system
+spec:
+  selector:
+    app: redis-notification
+  ports:
+  - port: 6379
+    targetPort: 6379
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-notification-pvc
+  namespace: order-system
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi

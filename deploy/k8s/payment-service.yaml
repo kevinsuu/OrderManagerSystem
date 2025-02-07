@@ -1,0 +1,207 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payment-service-config
+  namespace: order-system
+data:
+  SERVER_ADDRESS: ":8083"
+  DB_HOST: "postgres-payment"
+  DB_PORT: "5432"
+  DB_NAME: "payment_service"
+  DB_SSLMODE: "disable"
+  REDIS_ADDRESS: "redis-payment:6379"
+  STRIPE_MODE: "test"
+  PAYMENT_TIMEOUT_SECONDS: "300"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: payment-service-secret
+  namespace: order-system
+type: Opaque
+data:
+  DB_USER: cG9zdGdyZXM=  # postgres
+  DB_PASSWORD: cG9zdGdyZXM=  # postgres
+  REDIS_PASSWORD: ""
+  STRIPE_SECRET_KEY: ""
+  STRIPE_WEBHOOK_SECRET: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: order-system
+  labels:
+    app: payment-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+      - name: payment-service
+        image: yourusername/payment-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8083
+        envFrom:
+        - configMapRef:
+            name: payment-service-config
+        - secretRef:
+            name: payment-service-secret
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8083
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8083
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  namespace: order-system
+spec:
+  selector:
+    app: payment-service
+  ports:
+  - port: 8083
+    targetPort: 8083
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-payment
+  namespace: order-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-payment
+  template:
+    metadata:
+      labels:
+        app: postgres-payment
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: payment_service
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: payment-service-secret
+              key: DB_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: payment-service-secret
+              key: DB_PASSWORD
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-payment-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-payment
+  namespace: order-system
+spec:
+  selector:
+    app: postgres-payment
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-payment-pvc
+  namespace: order-system
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-payment
+  namespace: order-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-payment
+  template:
+    metadata:
+      labels:
+        app: redis-payment
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        volumeMounts:
+        - name: redis-storage
+          mountPath: /data
+      volumes:
+      - name: redis-storage
+        persistentVolumeClaim:
+          claimName: redis-payment-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-payment
+  namespace: order-system
+spec:
+  selector:
+    app: redis-payment
+  ports:
+  - port: 6379
+    targetPort: 6379
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-payment-pvc
+  namespace: order-system
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi

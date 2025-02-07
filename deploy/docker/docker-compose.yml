@@ -1,0 +1,117 @@
+version: '3.8'
+
+services:
+  # API Gateway
+  api-gateway:
+    build: ../../api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - auth-service
+      - order-service
+      - product-service
+      - payment-service
+      - notification-service
+
+  # Auth Service
+  auth-service:
+    build: ../../auth-service
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=auth_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - postgres
+      - redis
+
+  # Order Service
+  order-service:
+    build: ../../order-service
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=order_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - postgres
+      - redis
+
+  # Product Service
+  product-service:
+    build: ../../product-service
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=product_db
+    depends_on:
+      - postgres
+
+  # Payment Service
+  payment-service:
+    build: ../../payment-service
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=payment_db
+    depends_on:
+      - postgres
+
+  # Notification Service
+  notification-service:
+    build: ../../notification-service
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
+
+  # PostgreSQL
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_MULTIPLE_DATABASES=auth_db,order_db,product_db,payment_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # Prometheus (監控)
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  # Grafana (監控面板)
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  redis_data:
