@@ -20,7 +20,7 @@ type User struct {
 
 // UserLoginRequest 用戶登錄請求
 type UserLoginRequest struct {
-	Username string `json:"username" binding:"required"`
+	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
 }
 

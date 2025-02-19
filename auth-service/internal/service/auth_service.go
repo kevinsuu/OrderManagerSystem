@@ -98,8 +98,8 @@ func (s *authService) Register(ctx context.Context, req *model.UserRegisterReque
 
 // Login 用戶登錄
 func (s *authService) Login(ctx context.Context, req *model.UserLoginRequest) (*model.LoginResponse, error) {
-	// 獲取用戶
-	user, err := s.userRepo.GetByUsername(ctx, req.Username)
+	// 使用 email 獲取用戶
+	user, err := s.userRepo.GetByEmail(ctx, req.Email)
 	if err != nil {
 		return nil, err
 	}

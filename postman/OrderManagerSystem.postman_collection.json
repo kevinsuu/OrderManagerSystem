@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "b5b9b9b9-b9b9-b9b9-b9b9-b9b9b9b9b9b9",
 		"name": "Order Manager System",
-		"description": "訂單管理系統 API 集合",
+		"description": "訂單管理系統 API",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
