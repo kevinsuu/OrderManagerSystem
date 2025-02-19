@@ -1,154 +1,161 @@
 name: order-management-system
-version: '3.8'
 
 services:
-  # API Gateway
-  api-gateway:
-    build: ../../api-gateway
-    ports:
-      - "8080:8080"
-    depends_on:
-      - auth-service
-      - order-service
-      - product-service
-      - payment-service
-      - notification-service
-
   # Auth Service
   auth-service:
     build: ../../auth-service
+    ports:
+      - "8083:8083" 
     environment:
-      - DB_HOST=postgres-auth
+      - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=postgres
-      - DB_PASSWORD=postgres
+      - DB_PASSWORD=password
       - DB_NAME=auth_db
       - REDIS_ADDR=redis:6379
       - REDIS_PASSWORD=
       - REDIS_DB=0
     depends_on:
-      - postgres-auth
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - oms-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # Order Service
   order-service:
     build: ../../order-service
+    ports:
+      - "8082:8082"
     environment:
-      - DB_HOST=postgres-order
+      - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=postgres
-      - DB_PASSWORD=postgres
+      - DB_PASSWORD=password
       - DB_NAME=order_db
       - REDIS_ADDR=redis:6379
       - REDIS_PASSWORD=
       - REDIS_DB=0
+    networks:
+      - oms-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     depends_on:
-      - postgres-order
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   # Product Service
   product-service:
     build: ../../product-service
+    ports:
+      - "8081:8081"
     environment:
-      - DB_HOST=postgres-product
+      - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=postgres
-      - DB_PASSWORD=postgres
+      - DB_PASSWORD=password
       - DB_NAME=product_db
       - REDIS_ADDR=redis:6379
       - REDIS_PASSWORD=
       - REDIS_DB=0
+    networks:
+      - oms-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     depends_on:
-      - postgres-product
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   # Payment Service
   payment-service:
     build: ../../payment-service
+    ports:
+      - "8084:8084"
     environment:
-      - DB_HOST=postgres-payment
+      - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=postgres
-      - DB_PASSWORD=postgres
+      - DB_PASSWORD=password
       - DB_NAME=payment_db
       - REDIS_ADDR=redis:6379
       - REDIS_PASSWORD=
       - REDIS_DB=0
+    networks:
+      - oms-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     depends_on:
-      - postgres-payment
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   # Notification Service
   notification-service:
     build: ../../notification-service
+    ports:
+      - "8085:8085"
     environment:
-      - DB_HOST=postgres-notification
+      - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=postgres
-      - DB_PASSWORD=postgres
+      - DB_PASSWORD=password
       - DB_NAME=notification_db
       - REDIS_ADDR=redis:6379
       - REDIS_PASSWORD=
       - REDIS_DB=0
+    networks:
+      - oms-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     depends_on:
-      - postgres-notification
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
-  # PostgreSQL Databases
-  postgres-auth:
+  # 單一 PostgreSQL 實例
+  postgres:
     image: postgres:16-alpine
     environment:
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=auth_db
+      - POSTGRES_PASSWORD=password
+      # 創建所有需要的數據庫
+      - POSTGRES_MULTIPLE_DATABASES=auth_db,order_db,product_db,payment_db,notification_db
     volumes:
-      - postgres_auth_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh
     ports:
-      - "5437:5432"
-
-  postgres-order:
-    image: postgres:16-alpine
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=order_db
-    volumes:
-      - postgres_order_data:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"
-
-  postgres-product:
-    image: postgres:16-alpine
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=product_db
-    volumes:
-      - postgres_product_data:/var/lib/postgresql/data
-    ports:
-      - "5434:5432"
-
-  postgres-payment:
-    image: postgres:16-alpine
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=payment_db
-    volumes:
-      - postgres_payment_data:/var/lib/postgresql/data
-    ports:
-      - "5435:5432"
-
-  postgres-notification:
-    image: postgres:16-alpine
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=notification_db
-    volumes:
-      - postgres_notification_data:/var/lib/postgresql/data
-    ports:
-      - "5436:5432"
+      - "5432:5432"
+    networks:
+      - oms-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Redis
   redis:
@@ -157,6 +164,13 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    networks:
+      - oms-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   # Prometheus (監控)
   prometheus:
@@ -175,9 +189,10 @@ services:
       - prometheus
 
 volumes:
-  postgres_auth_data:
-  postgres_order_data:
-  postgres_product_data:
-  postgres_payment_data:
-  postgres_notification_data:
+  postgres_data:
   redis_data:
+
+# 添加網絡配置
+networks:
+  oms-network:
+    driver: bridge
