@@ -29,7 +29,11 @@ func NewPostgresDB(cfg config.DatabaseConfig) *gorm.DB {
 	sqlDB.SetConnMaxLifetime(time.Duration(cfg.ConnMaxLifetimeMinutes) * time.Minute)
 
 	// 自動遷移數據庫結構
-	err = db.AutoMigrate(&model.Order{})
+	err = db.AutoMigrate(
+		&model.Order{},
+		&model.OrderItem{},
+		&model.Address{},
+	)
 	if err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
