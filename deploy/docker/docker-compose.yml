@@ -1,3 +1,4 @@
+name: order-management-system
 version: '3.8'
 
 services:
