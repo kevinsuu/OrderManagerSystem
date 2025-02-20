@@ -9,16 +9,6 @@ import (
 	"github.com/kevinsuu/OrderManagerSystem/product-service/internal/service"
 )
 
-type Handler struct {
-	productService service.ProductService
-}
-
-func NewHandler(productService service.ProductService) *Handler {
-	return &Handler{
-		productService: productService,
-	}
-}
-
 // HealthCheck 健康檢查
 func (h *Handler) HealthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
