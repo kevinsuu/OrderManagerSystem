@@ -17,11 +17,11 @@ const (
 
 // Order 訂單模型
 type Order struct {
-	ID          string      `json:"id" gorm:"primaryKey"`
-	UserID      string      `json:"userId" gorm:"index"`
+	ID          string      `json:"id" gorm:"primaryKey;type:string"`
+	UserID      string      `json:"userId" gorm:"index;type:string"`
 	Status      OrderStatus `json:"status"`
 	TotalAmount float64     `json:"totalAmount"`
-	Items       []OrderItem `json:"items" gorm:"foreignKey:OrderID"`
+	Items       []OrderItem `json:"items" gorm:"foreignKey:OrderID;constraint:OnDelete:CASCADE"`
 	Address     Address     `json:"address" gorm:"embedded"`
 	CreatedAt   time.Time   `json:"createdAt"`
 	UpdatedAt   time.Time   `json:"updatedAt"`
@@ -30,8 +30,8 @@ type Order struct {
 
 // OrderItem 訂單項目
 type OrderItem struct {
-	ID        string    `json:"id" gorm:"primaryKey"`
-	OrderID   string    `json:"orderId" gorm:"index"`
+	ID        string    `json:"id" gorm:"primaryKey;type:string"`
+	OrderID   string    `json:"orderId" gorm:"index;type:string"`
 	ProductID string    `json:"productId"`
 	Quantity  int       `json:"quantity"`
 	Price     float64   `json:"price"`
@@ -50,7 +50,7 @@ type Address struct {
 
 // CreateOrderRequest 創建訂單請求
 type CreateOrderRequest struct {
-	UserID  string      `json:"userId" binding:"required"`
+	UserID  string      `json:"-"`  // 從 JWT token 中獲取，不從 JSON 讀取
 	Items   []OrderItem `json:"items" binding:"required,min=1"`
 	Address Address     `json:"address" binding:"required"`
 }

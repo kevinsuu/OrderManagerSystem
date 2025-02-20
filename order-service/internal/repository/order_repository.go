@@ -3,9 +3,11 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/kevinsuu/OrderManagerSystem/order-service/internal/model"
 	"gorm.io/gorm"
+	"github.com/google/uuid"
 )
 
 // OrderRepository 訂單存儲接口
@@ -30,7 +32,36 @@ func NewOrderRepository(db *gorm.DB) OrderRepository {
 
 // Create 創建訂單
 func (r *orderRepository) Create(ctx context.Context, order *model.Order) error {
-	return r.db.WithContext(ctx).Create(order).Error
+	// 生成訂單 ID
+	order.ID = uuid.New().String()
+	order.CreatedAt = time.Now()
+	order.UpdatedAt = time.Now()
+
+	// 使用事務來確保訂單和訂單項目的一致性
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 先創建訂單（不包含 Items）
+		if err := tx.Omit("Items").Create(order).Error; err != nil {
+			return err
+		}
+
+		// 準備訂單項目數據
+		for i := range order.Items {
+			order.Items[i].ID = uuid.New().String()
+			order.Items[i].OrderID = order.ID
+			order.Items[i].CreatedAt = time.Now()
+			order.Items[i].UpdatedAt = time.Now()
+		}
+
+		// 分批創建訂單項目
+		if len(order.Items) > 0 {
+			// 使用 CreateInBatches 來批量插入
+			if err := tx.CreateInBatches(order.Items, 100).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 // GetByID 根據ID獲取訂單

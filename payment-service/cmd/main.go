@@ -12,10 +12,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/kevinsuu/OrderManagerSystem/payment-service/internal/config"
 	"github.com/kevinsuu/OrderManagerSystem/payment-service/internal/handler"
+	"github.com/kevinsuu/OrderManagerSystem/payment-service/internal/middleware"
 	"github.com/kevinsuu/OrderManagerSystem/payment-service/internal/repository"
 	"github.com/kevinsuu/OrderManagerSystem/payment-service/internal/service"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 )
 
 func main() {
@@ -26,10 +25,7 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile | log.Lmicroseconds)
 
 	// 連接數據庫
-	db, err := initDB(cfg)
-	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
-	}
+	db := repository.NewPostgresDB(cfg.Database)
 
 	// 初始化 Redis
 	rdb := initRedis(cfg)
@@ -39,8 +35,33 @@ func main() {
 	paymentService := service.NewPaymentService(paymentRepo, rdb)
 	paymentHandler := handler.NewHandler(paymentService)
 
-	// 設置 Gin 路由
-	router := setupRouter(paymentHandler)
+	// 設置路由
+	router := gin.Default()
+
+	// 健康檢查路由（不需要認證）
+	router.GET("/health", paymentHandler.HealthCheck)
+
+	// API 路由組
+	api := router.Group("/api/v1")
+	{
+		// 添加認證中間件
+		api.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
+
+		payments := api.Group("/payments")
+		{
+			// 支付管理
+			payments.POST("/", paymentHandler.CreatePayment)
+			payments.GET("/", paymentHandler.ListPayments)
+			payments.GET("/:id", paymentHandler.GetPayment)
+			payments.GET("/order/:orderId", paymentHandler.GetPaymentByOrderID)
+			payments.GET("/user/:userId", paymentHandler.GetUserPayments)
+
+			// 支付操作
+			payments.POST("/:id/process", paymentHandler.ProcessPayment)
+			payments.POST("/:id/cancel", paymentHandler.CancelPayment)
+			payments.POST("/refund", paymentHandler.RefundPayment)
+		}
+	}
 
 	// 創建 HTTP 服務器
 	srv := &http.Server{
@@ -73,60 +94,7 @@ func main() {
 	log.Println("Server exiting")
 }
 
-// initDB 初始化數據庫連接
-func initDB(cfg *config.Config) (*gorm.DB, error) {
-	db, err := gorm.Open(postgres.Open(cfg.Database.DSN), &gorm.Config{})
-	if err != nil {
-		return nil, err
-	}
-
-	// 設置連接池
-	sqlDB, err := db.DB()
-	if err != nil {
-		return nil, err
-	}
-
-	sqlDB.SetMaxIdleConns(cfg.Database.MaxIdleConns)
-	sqlDB.SetMaxOpenConns(cfg.Database.MaxOpenConns)
-	sqlDB.SetConnMaxLifetime(time.Duration(cfg.Database.ConnMaxLifetimeMinutes) * time.Minute)
-
-	return db, nil
-}
-
 // initRedis 初始化 Redis 客戶端
 func initRedis(cfg *config.Config) repository.RedisRepository {
 	return repository.NewRedisRepository(cfg.Redis)
-}
-
-// setupRouter 設置路由
-func setupRouter(h *handler.Handler) *gin.Engine {
-	router := gin.Default()
-
-	// 中間件
-	router.Use(gin.Recovery())
-	router.Use(gin.Logger())
-
-	// 健康檢查
-	router.GET("/health", h.HealthCheck)
-
-	// API 路由組
-	api := router.Group("/api/v1")
-	{
-		payments := api.Group("/payments")
-		{
-			// 支付管理
-			payments.POST("/", h.CreatePayment)
-			payments.GET("/", h.ListPayments)
-			payments.GET("/:id", h.GetPayment)
-			payments.GET("/order/:orderId", h.GetPaymentByOrderID)
-			payments.GET("/user/:userId", h.GetUserPayments)
-
-			// 支付操作
-			payments.POST("/:id/process", h.ProcessPayment)
-			payments.POST("/:id/cancel", h.CancelPayment)
-			payments.POST("/refund", h.RefundPayment)
-		}
-	}
-
-	return router
 }

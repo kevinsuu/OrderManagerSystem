@@ -11,6 +11,12 @@ type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
 	Redis    RedisConfig
+	JWT      JWTConfig
+}
+
+// JWTConfig JWT 配置
+type JWTConfig struct {
+	Secret string
 }
 
 // ServerConfig 服務器配置
@@ -39,6 +45,14 @@ func LoadConfig() *Config {
 		Server:   loadServerConfig(),
 		Database: loadDatabaseConfig(),
 		Redis:    loadRedisConfig(),
+		JWT:      loadJWTConfig(),
+	}
+}
+
+// loadJWTConfig 加載 JWT 配置
+func loadJWTConfig() JWTConfig {
+	return JWTConfig{
+		Secret: getEnv("JWT_SECRET", "your-secret-key"),
 	}
 }
 
@@ -87,7 +101,7 @@ func getDatabaseDSN() string {
 	port := getEnv("DB_PORT", "5432")
 	user := getEnv("DB_USER", "postgres")
 	password := getEnv("DB_PASSWORD", "password")
-	dbname := getEnv("DB_NAME", "payment_service")
+	dbname := getEnv("DB_NAME", "payment_db")
 	sslmode := getEnv("DB_SSLMODE", "disable")
 
 	return "host=" + host + " port=" + port + " user=" + user + " password=" + password +
@@ -105,5 +119,3 @@ func getEnv(key, defaultValue string) string {
 	}
 	return value
 }
-
-

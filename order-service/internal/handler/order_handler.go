@@ -32,6 +32,10 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 		return
 	}
 
+	// 從 context 中獲取 userID
+	userID := c.GetString("userID")
+	req.UserID = userID
+
 	order, err := h.orderService.CreateOrder(c.Request.Context(), &req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -44,6 +48,8 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 // GetOrder 獲取訂單
 func (h *Handler) GetOrder(c *gin.Context) {
 	id := c.Param("id")
+	userID := c.GetString("userID")
+	
 	order, err := h.orderService.GetOrder(c.Request.Context(), id)
 	if err != nil {
 		if err == service.ErrOrderNotFound {
@@ -51,6 +57,12 @@ func (h *Handler) GetOrder(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	
+	// 檢查訂單是否屬於當前用戶
+	if order.Order.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
 		return
 	}
 
@@ -99,8 +111,12 @@ func (h *Handler) DeleteOrder(c *gin.Context) {
 func (h *Handler) ListOrders(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-
-	orders, err := h.orderService.ListOrders(c.Request.Context(), page, limit)
+	
+	// 從 context 中獲取 userID
+	userID := c.GetString("userID")
+	
+	// 改為調用 GetUserOrders
+	orders, err := h.orderService.GetUserOrders(c.Request.Context(), userID, page, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

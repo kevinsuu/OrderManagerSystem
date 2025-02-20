@@ -86,7 +86,7 @@ func getDatabaseDSN() string {
 	port := getEnv("DB_PORT", "5432")
 	user := getEnv("DB_USER", "postgres")
 	password := getEnv("DB_PASSWORD", "password")
-	dbname := getEnv("DB_NAME", "auth_service")
+	dbname := getEnv("DB_NAME", "auth_db")
 	sslmode := getEnv("DB_SSLMODE", "disable")
 
 	return "host=" + host + " port=" + port + " user=" + user + " password=" + password +
