@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/kevinsuu/OrderManagerSystem/product-service/internal/config"
 	"github.com/kevinsuu/OrderManagerSystem/product-service/internal/handler"
+	"github.com/kevinsuu/OrderManagerSystem/product-service/internal/middleware"
 	"github.com/kevinsuu/OrderManagerSystem/product-service/internal/repository"
 	"github.com/kevinsuu/OrderManagerSystem/product-service/internal/service"
 )
@@ -26,25 +27,28 @@ func main() {
 
 	// 初始化存儲層
 	productRepo := repository.NewProductRepository(db)
+	categoryRepo := repository.NewCategoryRepository(db)
 
 	// 初始化服務層
 	productService := service.NewProductService(productRepo, redisClient)
+	categoryService := service.NewCategoryService(categoryRepo)
 
 	// 初始化 HTTP 處理器
-	handler := handler.NewHandler(productService)
+	handler := handler.NewHandler(productService, categoryService)
 
 	// 設置 Gin 路由
 	router := gin.Default()
 
-	// 中間件
+	// 基本中間件
 	router.Use(gin.Recovery())
 	router.Use(gin.Logger())
 
-	// 健康檢查
+	// 健康檢查 (不需要驗證)
 	router.GET("/health", handler.HealthCheck)
 
-	// API 路由
+	// API 路由 (需要驗證)
 	api := router.Group("/api/v1")
+	api.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
 	{
 		products := api.Group("/products")
 		{
@@ -56,6 +60,16 @@ func main() {
 			products.PUT("/:id/stock", handler.UpdateStock)
 			products.GET("/category/:categoryId", handler.GetProductsByCategory)
 			products.GET("/search", handler.SearchProducts)
+		}
+
+		categories := api.Group("/categories")
+		{
+			categories.POST("/", handler.CreateCategory)
+			categories.GET("/", handler.ListCategories)
+			categories.GET("/:id", handler.GetCategory)
+			categories.PUT("/:id", handler.UpdateCategory)
+			categories.DELETE("/:id", handler.DeleteCategory)
+			categories.GET("/:id/subcategories", handler.GetSubcategories)
 		}
 	}
 

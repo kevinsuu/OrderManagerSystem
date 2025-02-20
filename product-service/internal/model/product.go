@@ -8,9 +8,9 @@ import (
 type ProductStatus string
 
 const (
-	ProductStatusActive    ProductStatus = "active"
-	ProductStatusInactive  ProductStatus = "inactive"
-	ProductStatusSoldOut   ProductStatus = "sold_out"
+	ProductStatusActive   ProductStatus = "active"
+	ProductStatusInactive ProductStatus = "inactive"
+	ProductStatusSoldOut  ProductStatus = "sold_out"
 )
 
 // Product 產品模型
@@ -19,14 +19,14 @@ type Product struct {
 	Name        string        `json:"name" gorm:"index"`
 	Description string        `json:"description"`
 	Price       float64       `json:"price"`
-	Stock       int          `json:"stock"`
+	Stock       int           `json:"stock"`
 	Status      ProductStatus `json:"status"`
-	CategoryID  string       `json:"categoryId" gorm:"index"`
-	Images      []Image      `json:"images" gorm:"foreignKey:ProductID"`
-	Attributes  []Attribute  `json:"attributes" gorm:"foreignKey:ProductID"`
-	CreatedAt   time.Time    `json:"createdAt"`
-	UpdatedAt   time.Time    `json:"updatedAt"`
-	DeletedAt   *time.Time   `json:"deletedAt,omitempty" gorm:"index"`
+	CategoryID  string        `json:"categoryId" gorm:"index"`
+	Images      []Image       `json:"images" gorm:"foreignKey:ProductID"`
+	Attributes  []Attribute   `json:"attributes" gorm:"foreignKey:ProductID"`
+	CreatedAt   time.Time     `json:"createdAt"`
+	UpdatedAt   time.Time     `json:"updatedAt"`
+	DeletedAt   *time.Time    `json:"deletedAt,omitempty" gorm:"index"`
 }
 
 // Image 產品圖片
@@ -49,17 +49,6 @@ type Attribute struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
-// Category 產品分類
-type Category struct {
-	ID        string     `json:"id" gorm:"primaryKey"`
-	Name      string     `json:"name"`
-	ParentID  *string    `json:"parentId" gorm:"index"`
-	Level     int        `json:"level"`
-	Sort      int        `json:"sort"`
-	CreatedAt time.Time  `json:"createdAt"`
-	UpdatedAt time.Time  `json:"updatedAt"`
-	DeletedAt *time.Time `json:"deletedAt,omitempty" gorm:"index"`
-}
 
 // CreateProductRequest 創建產品請求
 type CreateProductRequest struct {
@@ -74,14 +63,14 @@ type CreateProductRequest struct {
 
 // UpdateProductRequest 更新產品請求
 type UpdateProductRequest struct {
-	Name        *string       `json:"name,omitempty"`
-	Description *string       `json:"description,omitempty"`
-	Price       *float64      `json:"price,omitempty" binding:"omitempty,gt=0"`
-	Stock       *int          `json:"stock,omitempty" binding:"omitempty,gte=0"`
+	Name        *string        `json:"name,omitempty"`
+	Description *string        `json:"description,omitempty"`
+	Price       *float64       `json:"price,omitempty" binding:"omitempty,gt=0"`
+	Stock       *int           `json:"stock,omitempty" binding:"omitempty,gte=0"`
 	Status      *ProductStatus `json:"status,omitempty"`
-	CategoryID  *string       `json:"categoryId,omitempty"`
-	Images      []Image       `json:"images,omitempty"`
-	Attributes  []Attribute   `json:"attributes,omitempty"`
+	CategoryID  *string        `json:"categoryId,omitempty"`
+	Images      []Image        `json:"images,omitempty"`
+	Attributes  []Attribute    `json:"attributes,omitempty"`
 }
 
 // ProductResponse 產品響應
@@ -93,9 +82,9 @@ type ProductResponse struct {
 // ProductListResponse 產品列表響應
 type ProductListResponse struct {
 	Products []ProductResponse `json:"products"`
-	Total    int64            `json:"total"`
-	Page     int              `json:"page"`
-	Limit    int              `json:"limit"`
+	Total    int64             `json:"total"`
+	Page     int               `json:"page"`
+	Limit    int               `json:"limit"`
 }
 
 // StockUpdateRequest 庫存更新請求

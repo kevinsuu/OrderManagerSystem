@@ -4,7 +4,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"time"
 )
 
 // Config 應用配置
@@ -13,6 +12,9 @@ type Config struct {
 	Database DatabaseConfig
 	JWT      JWTConfig
 	Redis    RedisConfig
+}
+type JWTConfig struct {
+	Secret string
 }
 
 // RedisConfig Redis配置
@@ -35,12 +37,6 @@ type DatabaseConfig struct {
 	ConnMaxLifetimeMinutes int
 }
 
-// JWTConfig JWT配置
-type JWTConfig struct {
-	Secret      string
-	TokenExpiry time.Duration
-}
-
 // LoadConfig 加載配置
 func LoadConfig() *Config {
 	return &Config{
@@ -57,6 +53,11 @@ func loadServerConfig() ServerConfig {
 		Address: getEnv("SERVER_ADDRESS", ":8081"),
 	}
 }
+func loadJWTConfig() JWTConfig {
+	return JWTConfig{
+		Secret: getEnv("JWT_SECRET", "your-secret-key"),
+	}
+}
 
 // loadDatabaseConfig 加載數據庫配置
 func loadDatabaseConfig() DatabaseConfig {
@@ -69,16 +70,6 @@ func loadDatabaseConfig() DatabaseConfig {
 		MaxIdleConns:           maxIdleConns,
 		MaxOpenConns:           maxOpenConns,
 		ConnMaxLifetimeMinutes: connMaxLifetime,
-	}
-}
-
-// loadJWTConfig 加載JWT配置
-func loadJWTConfig() JWTConfig {
-	tokenExpiryMinutes, _ := strconv.Atoi(getEnv("JWT_TOKEN_EXPIRY_MINUTES", "60"))
-
-	return JWTConfig{
-		Secret:      getEnv("JWT_SECRET", "your-secret-key"),
-		TokenExpiry: time.Duration(tokenExpiryMinutes) * time.Minute,
 	}
 }
 
