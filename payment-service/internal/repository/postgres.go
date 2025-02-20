@@ -37,6 +37,6 @@ func NewPostgresDB(cfg config.DatabaseConfig) *gorm.DB {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 
-	fmt.Println("Connected to PostgreSQL database")
+	fmt.Println("Connected to PostgreSQL database and completed migrations")
 	return db
 }

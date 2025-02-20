@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/kevinsuu/OrderManagerSystem/order-service/internal/config"
 	"github.com/kevinsuu/OrderManagerSystem/order-service/internal/handler"
+	"github.com/kevinsuu/OrderManagerSystem/order-service/internal/middleware"
 	"github.com/kevinsuu/OrderManagerSystem/order-service/internal/repository"
 	"github.com/kevinsuu/OrderManagerSystem/order-service/internal/service"
 )
@@ -46,6 +47,9 @@ func main() {
 	// API 路由
 	api := router.Group("/api/v1")
 	{
+		// 添加 auth middleware
+		api.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
+		
 		orders := api.Group("/orders")
 		{
 			orders.POST("/", handler.CreateOrder)
@@ -55,7 +59,6 @@ func main() {
 			orders.DELETE("/:id", handler.DeleteOrder)
 			orders.POST("/:id/cancel", handler.CancelOrder)
 			orders.GET("/status/:status", handler.GetOrdersByStatus)
-			orders.GET("/user/:userId", handler.GetUserOrders)
 		}
 	}
 

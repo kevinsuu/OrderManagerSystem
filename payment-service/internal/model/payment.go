@@ -57,7 +57,7 @@ type Refund struct {
 // CreatePaymentRequest 創建支付請求
 type CreatePaymentRequest struct {
 	OrderID  string        `json:"orderId" binding:"required"`
-	UserID   string        `json:"userId" binding:"required"`
+	UserID   string        `json:"-"`  // 從 JWT token 中獲取，不從 JSON 讀取
 	Amount   float64       `json:"amount" binding:"required,gt=0"`
 	Currency string        `json:"currency" binding:"required"`
 	Method   PaymentMethod `json:"method" binding:"required"`

@@ -32,6 +32,10 @@ func (h *Handler) CreatePayment(c *gin.Context) {
 		return
 	}
 
+	// 從 context 中獲取 userID
+	userID := c.GetString("userID")
+	req.UserID = userID
+
 	payment, err := h.paymentService.CreatePayment(c.Request.Context(), &req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
