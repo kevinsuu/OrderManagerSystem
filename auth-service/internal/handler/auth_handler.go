@@ -96,13 +96,16 @@ func (h *Handler) ValidateToken(c *gin.Context) {
 
 // RefreshToken 刷新令牌
 func (h *Handler) RefreshToken(c *gin.Context) {
-	refreshToken := c.GetHeader("X-Refresh-Token")
-	if refreshToken == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "no refresh token provided"})
+	var req struct {
+		RefreshToken string `json:"refreshToken" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "refresh token is required"})
 		return
 	}
 
-	response, err := h.authService.RefreshToken(c.Request.Context(), refreshToken)
+	response, err := h.authService.RefreshToken(c.Request.Context(), req.RefreshToken)
 	if err != nil {
 		switch err {
 		case service.ErrInvalidToken:

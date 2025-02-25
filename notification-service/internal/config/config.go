@@ -47,18 +47,18 @@ type EmailConfig struct {
 
 // SMSConfig 短信配置
 type SMSConfig struct {
-	Provider   string
-	APIKey     string
-	APISecret  string
-	SenderID   string
+	Provider  string
+	APIKey    string
+	APISecret string
+	SenderID  string
 }
 
 // PushServiceConfig 推送服務配置
 type PushServiceConfig struct {
-	Provider    string
-	APIKey      string
-	ProjectID   string
-	AppID       string
+	Provider  string
+	APIKey    string
+	ProjectID string
+	AppID     string
 }
 
 // LoadConfig 加載配置
@@ -76,7 +76,7 @@ func LoadConfig() *Config {
 // loadServerConfig 加載服務器配置
 func loadServerConfig() ServerConfig {
 	return ServerConfig{
-		Address: getEnv("SERVER_ADDRESS", ":8084"),
+		Address: getEnv("SERVER_ADDRESS", ":8085"),
 	}
 }
 
@@ -125,20 +125,20 @@ func loadEmailConfig() EmailConfig {
 // loadSMSConfig 加載短信配置
 func loadSMSConfig() SMSConfig {
 	return SMSConfig{
-		Provider:   getEnv("SMS_PROVIDER", "twilio"),
-		APIKey:     getEnv("SMS_API_KEY", ""),
-		APISecret:  getEnv("SMS_API_SECRET", ""),
-		SenderID:   getEnv("SMS_SENDER_ID", ""),
+		Provider:  getEnv("SMS_PROVIDER", "twilio"),
+		APIKey:    getEnv("SMS_API_KEY", ""),
+		APISecret: getEnv("SMS_API_SECRET", ""),
+		SenderID:  getEnv("SMS_SENDER_ID", ""),
 	}
 }
 
 // loadPushServiceConfig 加載推送服務配置
 func loadPushServiceConfig() PushServiceConfig {
 	return PushServiceConfig{
-		Provider:    getEnv("PUSH_PROVIDER", "firebase"),
-		APIKey:      getEnv("PUSH_API_KEY", ""),
-		ProjectID:   getEnv("PUSH_PROJECT_ID", ""),
-		AppID:       getEnv("PUSH_APP_ID", ""),
+		Provider:  getEnv("PUSH_PROVIDER", "firebase"),
+		APIKey:    getEnv("PUSH_API_KEY", ""),
+		ProjectID: getEnv("PUSH_PROJECT_ID", ""),
+		AppID:     getEnv("PUSH_APP_ID", ""),
 	}
 }
 
