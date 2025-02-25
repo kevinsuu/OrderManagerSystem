@@ -22,21 +22,18 @@ func main() {
 	// 加載配置
 	cfg := config.LoadConfig()
 
-	// 初始化日誌
-	log.SetFlags(log.LstdFlags | log.Lshortfile | log.Lmicroseconds)
-
-	// 連接數據庫
-	db, err := initDB(cfg)
-	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
-	}
-
+	// 初始化資料庫連接
+	db := repository.NewPostgresDB(cfg.Database)
 	// 初始化 Redis
 	rdb := repository.NewRedisRepository(cfg.Redis)
 
-	// 初始化依賴
+	// 初始化存儲層
 	notificationRepo := repository.NewNotificationRepository(db, rdb)
+
+	// 初始化服務層
 	notificationService := service.NewNotificationService(notificationRepo)
+
+	// 初始化 HTTP 處理器
 	notificationHandler := handler.NewHandler(notificationService)
 
 	// 設置 Gin 路由
@@ -95,7 +92,6 @@ func initDB(cfg *config.Config) (*gorm.DB, error) {
 
 	return db, nil
 }
-
 
 // setupRouter 設置路由
 func setupRouter(h *handler.Handler) *gin.Engine {

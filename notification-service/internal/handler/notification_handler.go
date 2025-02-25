@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/kevinsuu/OrderManagerSystem/notification-service/internal/model"
@@ -111,12 +112,26 @@ func (h *Handler) ListNotifications(c *gin.Context) {
 func (h *Handler) CreateTemplate(c *gin.Context) {
 	var template model.NotificationTemplate
 	if err := c.ShouldBindJSON(&template); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "無效的請求數據",
+			"details": err.Error(),
+		})
 		return
 	}
 
 	if err := h.notificationService.CreateTemplate(c.Request.Context(), &template); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if strings.Contains(err.Error(), "unique constraint") &&
+			strings.Contains(err.Error(), "idx_notification_templates_name") {
+			c.JSON(http.StatusConflict, gin.H{
+				"error":   "模板名稱重複",
+				"details": "已存在相同名稱的通知模板",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "創建模板失敗",
+			"details": err.Error(),
+		})
 		return
 	}
 

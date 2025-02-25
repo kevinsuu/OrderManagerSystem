@@ -242,19 +242,19 @@ func (s *notificationService) processNotification(ctx context.Context, notificat
 	}
 }
 
-// parseTemplate 解析模板
-func (s *notificationService) parseTemplate(text string, variables map[string]interface{}) (string, error) {
-	tmpl, err := template.New("").Parse(text)
+// parseTemplate 解析模板並替換變數
+func (s *notificationService) parseTemplate(content string, variables map[string]interface{}) (string, error) {
+	tmpl, err := template.New("notification").Parse(content)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("解析模板失敗: %w", err)
 	}
 
-	var result strings.Builder
-	if err := tmpl.Execute(&result, variables); err != nil {
-		return "", err
+	var buf strings.Builder
+	if err := tmpl.Execute(&buf, variables); err != nil {
+		return "", fmt.Errorf("執行模板失敗: %w", err)
 	}
 
-	return result.String(), nil
+	return buf.String(), nil
 }
 
 // sendEmail 發送郵件
