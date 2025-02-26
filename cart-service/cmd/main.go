@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/gin-gonic/gin"
+	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/client"
 	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/config"
 	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/handler"
 	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/middleware"
@@ -18,15 +19,21 @@ func main() {
 	// 加載配置
 	cfg := config.LoadConfig()
 
+	// 初始化資料庫連接
+	db := repository.NewPostgresDB(cfg.Database)
+
 	// 初始化 Redis
 	redisClient := repository.NewRedisRepository(cfg.Redis)
 	defer redisClient.Close()
 
+	// 初始化 product client
+	productClient := client.NewProductClient(cfg.ProductService.BaseURL)
+
 	// 初始化存儲層
-	cartRepo := repository.NewCartRepository(redisClient)
+	cartRepo := repository.NewCartRepository(redisClient, db)
 
 	// 初始化服務層
-	cartService := service.NewCartService(cartRepo)
+	cartService := service.NewCartService(cartRepo, productClient)
 
 	// 初始化 HTTP 處理器
 	handler := handler.NewHandler(cartService)

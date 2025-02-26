@@ -3,7 +3,10 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"time"
 
+	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/client"
 	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/model"
 	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/repository"
 )
@@ -23,13 +26,14 @@ type CartService interface {
 }
 
 type cartService struct {
-	cartRepo repository.CartRepository
-	// TODO: 添加 product service client 用於檢查商品信息和庫存
+	cartRepo      repository.CartRepository
+	productClient client.ProductClient
 }
 
-func NewCartService(cartRepo repository.CartRepository) CartService {
+func NewCartService(cartRepo repository.CartRepository, productClient client.ProductClient) CartService {
 	return &cartService{
-		cartRepo: cartRepo,
+		cartRepo:      cartRepo,
+		productClient: productClient,
 	}
 }
 
@@ -54,4 +58,71 @@ func (s *cartService) GetCart(ctx context.Context, userID string) (*model.CartRe
 	return response, nil
 }
 
-// ... 實現其他方法 ...
+func (s *cartService) AddItem(ctx context.Context, userID string, req *model.AddToCartRequest) error {
+	// 調用 product service 檢查商品是否存在及庫存
+	productInfo, err := s.productClient.GetProduct(ctx, req.ProductID)
+	if err != nil {
+		return fmt.Errorf("failed to get product info: %w", err)
+	}
+	if productInfo == nil {
+		return ErrProductNotFound
+	}
+
+	// 檢查庫存
+	if productInfo.StockCount < req.Quantity {
+		return ErrInvalidStock
+	}
+
+	item := model.CartItem{
+		ProductID:  req.ProductID,
+		Name:       productInfo.Name,
+		Image:      productInfo.Image,
+		Price:      productInfo.Price,
+		Quantity:   req.Quantity,
+		Selected:   true,
+		StockCount: productInfo.StockCount,
+		UpdatedAt:  time.Now(),
+	}
+
+	return s.cartRepo.AddItem(ctx, userID, item)
+}
+
+func (s *cartService) RemoveItem(ctx context.Context, userID string, productID string) error {
+	return s.cartRepo.RemoveItem(ctx, userID, productID)
+}
+
+func (s *cartService) UpdateQuantity(ctx context.Context, userID string, req *model.UpdateQuantityRequest) error {
+	// 調用 product service 檢查庫存
+	productInfo, err := s.productClient.GetProduct(ctx, req.ProductID)
+	if err != nil {
+		return fmt.Errorf("failed to get product info: %w", err)
+	}
+	if productInfo == nil {
+		return ErrProductNotFound
+	}
+
+	if req.Quantity < 0 || req.Quantity > productInfo.StockCount {
+		return ErrInvalidStock
+	}
+
+	return s.cartRepo.UpdateQuantity(ctx, userID, req.ProductID, req.Quantity)
+}
+
+func (s *cartService) ClearCart(ctx context.Context, userID string) error {
+	return s.cartRepo.ClearCart(ctx, userID)
+}
+
+func (s *cartService) SelectItems(ctx context.Context, userID string, req *model.SelectItemsRequest) error {
+	// 檢查所有商品是否存在
+	for _, productID := range req.ProductIDs {
+		productInfo, err := s.productClient.GetProduct(ctx, productID)
+		if err != nil {
+			return fmt.Errorf("failed to get product info: %w", err)
+		}
+		if productInfo == nil {
+			return fmt.Errorf("product not found: %s", productID)
+		}
+	}
+
+	return s.cartRepo.SelectItems(ctx, userID, req.ProductIDs)
+}
