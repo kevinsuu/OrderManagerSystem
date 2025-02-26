@@ -63,3 +63,52 @@ func (u *User) HashPassword() error {
 func (u *User) CheckPassword(password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
 }
+
+// Address 用戶地址
+type Address struct {
+    ID         string    `json:"id" gorm:"primaryKey"`
+    UserID     string    `json:"userId" gorm:"index"`
+    Name       string    `json:"name"`
+    Recipient  string    `json:"recipient"`
+    Phone      string    `json:"phone"`
+    PostalCode string    `json:"postal_code"`
+    City       string    `json:"city"`
+    District   string    `json:"district"`
+    Street     string    `json:"street"`
+    IsDefault  bool      `json:"is_default"`
+    CreatedAt  time.Time `json:"createdAt"`
+    UpdatedAt  time.Time `json:"updatedAt"`
+}
+
+// UserPreference 用戶偏好
+type UserPreference struct {
+	UserID            string    `json:"userId" gorm:"primaryKey"`
+	Language          string    `json:"language" gorm:"default:'zh-TW'"`
+	Currency          string    `json:"currency" gorm:"default:'TWD'"`
+	NotificationEmail bool      `json:"notificationEmail" gorm:"default:true"`
+	NotificationSMS   bool      `json:"notificationSMS" gorm:"default:false"`
+	Theme             string    `json:"theme" gorm:"default:'light'"`
+	CreatedAt         time.Time `json:"createdAt"`
+	UpdatedAt         time.Time `json:"updatedAt"`
+}
+
+// AddressRequest 地址請求
+type AddressRequest struct {
+    Name       string `json:"name" binding:"required"`
+    Recipient  string `json:"recipient" binding:"required"`
+    Phone      string `json:"phone" binding:"required"`
+    PostalCode string `json:"postal_code" binding:"required"`
+    City       string `json:"city" binding:"required"`
+    District   string `json:"district" binding:"required"`
+    Street     string `json:"street" binding:"required"`
+    IsDefault  bool   `json:"is_default"`
+}
+
+// PreferenceRequest 偏好設置請求
+type PreferenceRequest struct {
+	Language          string `json:"language"`
+	Currency          string `json:"currency"`
+	NotificationEmail bool   `json:"notificationEmail"`
+	NotificationSMS   bool   `json:"notificationSMS"`
+	Theme             string `json:"theme"`
+}
