@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/kevinsuu/OrderManagerSystem/auth-service/internal/model"
 	"gorm.io/gorm"
@@ -17,15 +18,24 @@ type UserRepository interface {
 	Update(ctx context.Context, user *model.User) error
 	Delete(ctx context.Context, id string) error
 	List(ctx context.Context, page, limit int) ([]model.User, int64, error)
+	CreateAddress(ctx context.Context, address *model.Address) error
+	GetAddresses(ctx context.Context, userID string) ([]model.Address, error)
+	GetAddressByID(ctx context.Context, id string) (*model.Address, error)
+	UpdateAddress(ctx context.Context, address *model.Address) error
+	DeleteAddress(ctx context.Context, id string) error
+	GetPreference(ctx context.Context, userID string) (*model.UserPreference, error)
+	UpdatePreference(ctx context.Context, pref *model.UserPreference) error
 }
 
 type userRepository struct {
 	db *gorm.DB
 }
 
-// NewUserRepository 創建用戶存儲庫實例
+// NewUserRepository 創建用戶存儲實例
 func NewUserRepository(db *gorm.DB) UserRepository {
-	return &userRepository{db: db}
+	return &userRepository{
+		db: db,
+	}
 }
 
 // Create 創建用戶
@@ -94,4 +104,77 @@ func (r *userRepository) List(ctx context.Context, page, limit int) ([]model.Use
 	}
 
 	return users, total, nil
+}
+
+// CreateAddress 創建地址
+func (r *userRepository) CreateAddress(ctx context.Context, address *model.Address) error {
+	return r.db.WithContext(ctx).Create(address).Error
+}
+
+// GetAddresses 獲取用戶的所有地址
+func (r *userRepository) GetAddresses(ctx context.Context, userID string) ([]model.Address, error) {
+	var addresses []model.Address
+	if err := r.db.WithContext(ctx).Where("user_id = ?", userID).Find(&addresses).Error; err != nil {
+		return nil, err
+	}
+	return addresses, nil
+}
+
+// GetAddressByID 通過ID獲取地址
+func (r *userRepository) GetAddressByID(ctx context.Context, id string) (*model.Address, error) {
+	var address model.Address
+	if err := r.db.WithContext(ctx).First(&address, "id = ?", id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &address, nil
+}
+
+// DeleteAddress 刪除地址
+func (r *userRepository) DeleteAddress(ctx context.Context, id string) error {
+	return r.db.WithContext(ctx).Delete(&model.Address{}, "id = ?", id).Error
+}
+
+// GetPreference 獲取用戶偏好設置
+func (r *userRepository) GetPreference(ctx context.Context, userID string) (*model.UserPreference, error) {
+	var preference model.UserPreference
+	if err := r.db.WithContext(ctx).First(&preference, "user_id = ?", userID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// 如果沒有找到偏好設置，返回默認值
+			return &model.UserPreference{
+				UserID:            userID,
+				Language:          "zh-TW",
+				Currency:          "TWD",
+				NotificationEmail: true,
+				NotificationSMS:   false,
+				Theme:             "light",
+				CreatedAt:         time.Now(),
+				UpdatedAt:         time.Now(),
+			}, nil
+		}
+		return nil, err
+	}
+	return &preference, nil
+}
+
+// UpdatePreference 更新用戶偏好設置
+func (r *userRepository) UpdatePreference(ctx context.Context, pref *model.UserPreference) error {
+	return r.db.WithContext(ctx).Save(pref).Error
+}
+
+// UpdateAddress 更新地址
+func (r *userRepository) UpdateAddress(ctx context.Context, address *model.Address) error {
+	// 檢查地址是否存在
+	var existingAddress model.Address
+	if err := r.db.WithContext(ctx).First(&existingAddress, "id = ?", address.ID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return err
+	}
+
+	// 更新地址
+	return r.db.WithContext(ctx).Save(address).Error
 }

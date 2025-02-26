@@ -1,6 +1,6 @@
 {
 	"info": {
-		"_postman_id": "75f6c1ed-cb06-4f19-b4b3-010dc87f3474",
+		"_postman_id": "9045f70e-4b6a-4229-a45d-73d6c78386e7",
 		"name": "Order Manager System",
 		"description": "訂單管理系統 API 文檔",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
@@ -160,6 +160,209 @@
 							]
 						},
 						"description": "獲取用戶信息"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Address",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"公司\",\n    \"recipient\": \"王小明\",\n    \"phone\": \"0912345678\",\n    \"postal_code\": \"10045\",\n    \"city\": \"台北市\",\n    \"district\": \"信義區\",\n    \"street\": \"信義路五段7號\",\n    \"is_default\": false\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8083/api/v1/user/addresses",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8083",
+							"path": [
+								"api",
+								"v1",
+								"user",
+								"addresses"
+							]
+						},
+						"description": "新增用戶地址"
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Addresses",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8083/api/v1/user/addresses",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8083",
+							"path": [
+								"api",
+								"v1",
+								"user",
+								"addresses"
+							]
+						},
+						"description": "獲取用戶的所有地址"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Address",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"公司\",\n    \"recipient\": \"王小明\",\n    \"phone\": \"0912345678\",\n    \"postal_code\": \"100\",\n    \"city\": \"台北市\",\n    \"district\": \"信義區\",\n    \"street\": \"信義路五段7號\",\n    \"is_default\": false\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8083/api/v1/user/addresses/{{address_id}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8083",
+							"path": [
+								"api",
+								"v1",
+								"user",
+								"addresses",
+								"{{address_id}}"
+							]
+						},
+						"description": "更新地址信息"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Address",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8083/api/v1/user/addresses/{{address_id}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8083",
+							"path": [
+								"api",
+								"v1",
+								"user",
+								"addresses",
+								"{{address_id}}"
+							]
+						},
+						"description": "刪除地址"
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Preference",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8083/api/v1/user/preferences",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8083",
+							"path": [
+								"api",
+								"v1",
+								"user",
+								"preferences"
+							]
+						},
+						"description": "獲取用戶偏好設置"
+					},
+					"response": []
+				},
+				{
+					"name": "Update User Preference",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"language\": \"zh_TW\",\n    \"theme\": \"dark\",\n    \"notification_enabled\": true,\n    \"email_subscription\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:8083/api/v1/user/preferences",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8083",
+							"path": [
+								"api",
+								"v1",
+								"user",
+								"preferences"
+							]
+						},
+						"description": "更新用戶偏好設置"
 					},
 					"response": []
 				}

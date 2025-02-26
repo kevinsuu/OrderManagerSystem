@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/kevinsuu/OrderManagerSystem/auth-service/internal/config"
 	"github.com/kevinsuu/OrderManagerSystem/auth-service/internal/handler"
+	"github.com/kevinsuu/OrderManagerSystem/auth-service/internal/middleware"
 	"github.com/kevinsuu/OrderManagerSystem/auth-service/internal/repository"
 	"github.com/kevinsuu/OrderManagerSystem/auth-service/internal/service"
 )
@@ -32,7 +33,7 @@ func main() {
 
 	// 設置 Gin 路由
 	router := gin.Default()
-	
+
 	// 中間件
 	router.Use(gin.Recovery())
 	router.Use(gin.Logger())
@@ -49,12 +50,33 @@ func main() {
 
 		// 健康檢查
 		api.GET("/health", handler.HealthCheck)
-		
+
 		// 需要認證的路由
 		secured := api.Group("/")
+		secured.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
 		{
 			secured.GET("/validate", handler.ValidateToken)
 			secured.GET("/user/:id", handler.GetUser)
+
+			// 用戶相關路由組
+			user := secured.Group("/user")
+			{
+				// 地址管理
+				addresses := user.Group("/addresses")
+				{
+					addresses.POST("/", handler.CreateAddress)
+					addresses.GET("/", handler.GetAddresses)
+					addresses.PUT("/:id", handler.UpdateAddress)
+					addresses.DELETE("/:id", handler.DeleteAddress)
+				}
+
+				// 用戶偏好
+				preferences := user.Group("/preferences")
+				{
+					preferences.GET("/", handler.GetPreference)
+					preferences.PUT("/", handler.UpdatePreference)
+				}
+			}
 		}
 	}
 
