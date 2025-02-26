@@ -136,6 +136,33 @@ services:
       redis:
         condition: service_healthy
 
+  # Cart Service
+  cart-service:
+    build: ../../cart-service
+    ports:
+      - "8086:8086"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=password
+      - DB_NAME=cart_db
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
+    networks:
+      - oms-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy      
+
   # 單一 PostgreSQL 實例
   postgres:
     image: postgres:16-alpine
