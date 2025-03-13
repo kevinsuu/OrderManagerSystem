@@ -30,9 +30,13 @@ type Order struct {
 
 // OrderItem 訂單項目
 type OrderItem struct {
-	ProductID string  `json:"productId"`
-	Quantity  int     `json:"quantity"`
-	Price     float64 `json:"price"`
+	ID        string    `json:"id" gorm:"primaryKey;type:string"`
+	OrderID   string    `json:"orderId" gorm:"type:string"`
+	ProductID string    `json:"productId"`
+	Quantity  int       `json:"quantity"`
+	Price     float64   `json:"price"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // Address 地址
@@ -48,7 +52,7 @@ type Address struct {
 type CreateOrderRequest struct {
 	UserID  string      `json:"userId"`
 	Items   []OrderItem `json:"items"`
-	Address string      `json:"address"`
+	Address Address     `json:"address"`
 }
 
 // UpdateOrderRequest 更新訂單請求
