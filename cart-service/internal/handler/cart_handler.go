@@ -1,9 +1,12 @@
 package handler
 
 import (
+	"context"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/client"
 	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/model"
 	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/service"
 )
@@ -39,10 +42,30 @@ func (h *Handler) AddToCart(c *gin.Context) {
 		return
 	}
 
+	// 獲取 token
+	token := c.GetHeader("Authorization")
+	if token == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "no authorization header"})
+		return
+	}
+
+	// 直接將完整的 Authorization header 傳遞給 context，不需要額外處理
+	ctx := context.WithValue(c.Request.Context(), client.TokenKey, token)
 	userID := c.GetString("userID")
 
-	if err := h.cartService.AddItem(c.Request.Context(), userID, &req); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if err := h.cartService.AddItem(ctx, userID, &req); err != nil {
+		switch {
+		case err == service.ErrProductNotFound:
+			c.JSON(http.StatusNotFound, gin.H{"error": "product not found"})
+		case strings.Contains(err.Error(), "insufficient stock"):
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		case strings.Contains(err.Error(), "total quantity exceeds stock"):
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		case strings.Contains(err.Error(), "unauthorized"):
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized access"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
 		return
 	}
 
@@ -70,10 +93,28 @@ func (h *Handler) UpdateQuantity(c *gin.Context) {
 		return
 	}
 
+	// 獲取 token
+	token := c.GetHeader("Authorization")
+	if token == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "no authorization header"})
+		return
+	}
+
+	// 直接將完整的 Authorization header 傳遞給 context
+	ctx := context.WithValue(c.Request.Context(), client.TokenKey, token)
 	userID := c.GetString("userID")
 
-	if err := h.cartService.UpdateQuantity(c.Request.Context(), userID, &req); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if err := h.cartService.UpdateQuantity(ctx, userID, &req); err != nil {
+		switch {
+		case err == service.ErrProductNotFound:
+			c.JSON(http.StatusNotFound, gin.H{"error": "product not found"})
+		case err == service.ErrInvalidStock:
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		case strings.Contains(err.Error(), "unauthorized"):
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized access"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
 		return
 	}
 
@@ -88,9 +129,17 @@ func (h *Handler) SelectItems(c *gin.Context) {
 		return
 	}
 
+	token := c.GetHeader("Authorization")
+	if token == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "no authorization header"})
+		return
+	}
+
+	// 直接將完整的 Authorization header 傳遞給 context
+	ctx := context.WithValue(c.Request.Context(), client.TokenKey, token)
 	userID := c.GetString("userID")
 
-	if err := h.cartService.SelectItems(c.Request.Context(), userID, &req); err != nil {
+	if err := h.cartService.SelectItems(ctx, userID, &req); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -108,6 +157,32 @@ func (h *Handler) ClearCart(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Cart cleared successfully"})
+}
+
+// CreateOrder 從購物車創建訂單
+func (h *Handler) CreateOrder(c *gin.Context) {
+	token := c.GetHeader("Authorization")
+	if token == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "no authorization header"})
+		return
+	}
+
+	ctx := context.WithValue(c.Request.Context(), client.TokenKey, token)
+	userID := c.GetString("userID")
+
+	if err := h.cartService.CreateOrder(ctx, userID); err != nil {
+		switch {
+		case strings.Contains(err.Error(), "no items selected"):
+			c.JSON(http.StatusBadRequest, gin.H{"error": "no items selected in cart"})
+		case strings.Contains(err.Error(), "unauthorized"):
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized access"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Order created successfully"})
 }
 
 // ... 實現其他處理器方法 ...

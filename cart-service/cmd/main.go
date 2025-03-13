@@ -28,12 +28,12 @@ func main() {
 
 	// 初始化 product client
 	productClient := client.NewProductClient(cfg.ProductService.BaseURL)
-
+	orderClient := client.NewOrderClient(cfg.OrderService.BaseURL)
 	// 初始化存儲層
 	cartRepo := repository.NewCartRepository(redisClient, db)
 
 	// 初始化服務層
-	cartService := service.NewCartService(cartRepo, productClient)
+	cartService := service.NewCartService(cartRepo, productClient, orderClient)
 
 	// 初始化 HTTP 處理器
 	handler := handler.NewHandler(cartService)
@@ -64,6 +64,7 @@ func main() {
 			cart.PUT("/items", handler.UpdateQuantity)
 			cart.POST("/items/select", handler.SelectItems)
 			cart.DELETE("/", handler.ClearCart)
+			cart.POST("/checkout", handler.CreateOrder)
 		}
 	}
 

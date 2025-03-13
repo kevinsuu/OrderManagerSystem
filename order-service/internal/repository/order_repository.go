@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/kevinsuu/OrderManagerSystem/order-service/internal/model"
 	"gorm.io/gorm"
-	"github.com/google/uuid"
 )
 
 // OrderRepository 訂單存儲接口
@@ -19,6 +19,11 @@ type OrderRepository interface {
 	List(ctx context.Context, page, limit int) ([]model.Order, int64, error)
 	GetByUserID(ctx context.Context, userID string, page, limit int) ([]model.Order, int64, error)
 	GetByStatus(ctx context.Context, status model.OrderStatus, page, limit int) ([]model.Order, int64, error)
+	GetOrders(ctx context.Context, page, limit int) ([]*model.Order, error)
+	GetOrder(ctx context.Context, id string) (*model.Order, error)
+	GetUserOrders(ctx context.Context, userID string, page, limit int) ([]*model.Order, error)
+	UpdateOrder(ctx context.Context, order *model.Order) error
+	CreateOrder(ctx context.Context, order *model.Order) error
 }
 
 type orderRepository struct {
@@ -138,4 +143,58 @@ func (r *orderRepository) GetByStatus(ctx context.Context, status model.OrderSta
 	}
 
 	return orders, total, nil
+}
+
+func (r *orderRepository) CreateOrder(ctx context.Context, order *model.Order) error {
+	return r.db.WithContext(ctx).Create(order).Error
+}
+
+// GetOrder 根據ID獲取訂單
+func (r *orderRepository) GetOrder(ctx context.Context, id string) (*model.Order, error) {
+	var order model.Order
+	if err := r.db.WithContext(ctx).Preload("Items").First(&order, "id = ?", id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &order, nil
+}
+
+// GetOrders 獲取訂單列表
+func (r *orderRepository) GetOrders(ctx context.Context, page, limit int) ([]*model.Order, error) {
+	var orders []*model.Order
+	offset := (page - 1) * limit
+
+	if err := r.db.WithContext(ctx).
+		Preload("Items").
+		Offset(offset).
+		Limit(limit).
+		Find(&orders).Error; err != nil {
+		return nil, err
+	}
+
+	return orders, nil
+}
+
+// GetUserOrders 獲取用戶的訂單列表
+func (r *orderRepository) GetUserOrders(ctx context.Context, userID string, page, limit int) ([]*model.Order, error) {
+	var orders []*model.Order
+	offset := (page - 1) * limit
+
+	if err := r.db.WithContext(ctx).
+		Preload("Items").
+		Where("user_id = ?", userID).
+		Offset(offset).
+		Limit(limit).
+		Find(&orders).Error; err != nil {
+		return nil, err
+	}
+
+	return orders, nil
+}
+
+// UpdateOrder 更新訂單
+func (r *orderRepository) UpdateOrder(ctx context.Context, order *model.Order) error {
+	return r.db.WithContext(ctx).Save(order).Error
 }
