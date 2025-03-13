@@ -1,20 +1,20 @@
 FROM golang:1.22-alpine AS builder
 
 # 安裝基本構建工具
-RUN apk add --no-cache git
+RUN apk add --no-cache git gcc musl-dev
 
 WORKDIR /app
 
 # 設置 Go 環境變數以優化構建
 ENV GO111MODULE=on
-ENV GOPROXY=https://goproxy.io,direct
+ENV GOPROXY=https://goproxy.cn,direct
 ENV CGO_ENABLED=0
 ENV GOOS=linux
 ENV GOARCH=amd64
 
 # 複製並下載依賴
 COPY go.mod go.sum ./
-RUN go mod download
+RUN go mod tidy && go mod download
 
 # 複製源代碼
 COPY . .
