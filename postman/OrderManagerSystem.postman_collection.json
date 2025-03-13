@@ -1629,6 +1629,10 @@
 		{
 			"key": "category_id",
 			"value": "your_category_id_here"
+		},
+		{
+			"key": "prod",
+			"value": "35.239.247.137"
 		}
 	]
 }
