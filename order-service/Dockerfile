@@ -1,21 +1,32 @@
 FROM golang:1.22-alpine AS builder
 
+# 安裝基本構建工具
+RUN apk add --no-cache git
+
 WORKDIR /app
 
-# 首先只複製 go.mod 和 go.sum
-COPY go.mod go.sum ./
+# 設置 Go 環境變數以優化構建
+ENV GO111MODULE=on
+ENV GOPROXY=https://goproxy.io,direct
+ENV CGO_ENABLED=0
+ENV GOOS=linux
+ENV GOARCH=amd64
 
-# 下載依賴
+# 複製並下載依賴
+COPY go.mod go.sum ./
 RUN go mod download
 
-# 再複製其餘源代碼
+# 複製源代碼
 COPY . .
 
-# 構建
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/order-service ./cmd/main.go
+# 構建（添加編譯優化標誌）
+RUN go build -ldflags="-w -s" -o /app/order-service ./cmd/main.go
 
 # 最終階段
 FROM alpine:latest
+
+# 安裝 CA 證書
+RUN apk --no-cache add ca-certificates
 
 WORKDIR /app
 
