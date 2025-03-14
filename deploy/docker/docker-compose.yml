@@ -7,7 +7,6 @@ services:
     ports:
       - "8083:8083" 
     environment:
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/sa/order-manager-system-a6931-firebase-adminsdk-fbsvc-65d3904bc6.json
       - FIREBASE_CREDENTIALS=/app/sa/order-manager-system-a6931-firebase-adminsdk-fbsvc-65d3904bc6.json
       - FIREBASE_PROJECT_ID=order-manager-system-a6931
       - JWT_SECRET=your-secret-key
