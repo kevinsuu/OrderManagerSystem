@@ -4,7 +4,7 @@
 *.dll
 *.so
 *.dylib
-
+order-manager-system-a6931-firebase-adminsdk-fbsvc-65d3904bc6.json
 # Test binary, built with `go test -c`
 *.test
 

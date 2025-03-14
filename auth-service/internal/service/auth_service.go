@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -12,18 +14,20 @@ import (
 )
 
 var (
-	ErrUserNotFound    = errors.New("user not found")
-	ErrInvalidPassword = errors.New("invalid password")
-	ErrUserExists      = errors.New("user already exists")
-	ErrInvalidToken    = errors.New("invalid token")
-	ErrTokenExpired    = errors.New("token expired")
+	ErrUserNotFound       = errors.New("user not found")
+	ErrInvalidPassword    = errors.New("invalid password")
+	ErrUserExists         = errors.New("user/email already exists")
+	ErrInvalidToken       = errors.New("invalid token")
+	ErrTokenExpired       = errors.New("token expired")
+	ErrUsernameTaken      = errors.New("username already taken")
+	ErrInvalidCredentials = errors.New("invalid credentials")
 )
 
-// AuthService 認證服務接口
-type AuthService interface {
+// IAuthService 定義認證服務接口
+type IAuthService interface {
 	Register(ctx context.Context, req *model.UserRegisterRequest) (*model.UserResponse, error)
 	Login(ctx context.Context, req *model.UserLoginRequest) (*model.LoginResponse, error)
-	ValidateToken(ctx context.Context, token string) (*model.UserResponse, error)
+	ValidateToken(ctx context.Context, tokenString string) (*model.UserResponse, error)
 	RefreshToken(ctx context.Context, refreshToken string) (*model.LoginResponse, error)
 	GetUserByID(ctx context.Context, id string) (*model.UserResponse, error)
 	CreateAddress(ctx context.Context, userID string, req *model.AddressRequest) (*model.Address, error)
@@ -35,16 +39,17 @@ type AuthService interface {
 	GetAddressByID(ctx context.Context, addressID string) (*model.Address, error)
 }
 
+// authService 實現 IAuthService 接口
 type authService struct {
-	userRepo    repository.UserRepository
+	userRepo    repository.IUserRepository
 	jwtSecret   []byte
 	tokenExpiry time.Duration
 }
 
-// NewAuthService 創建認證服務實例
-func NewAuthService(userRepo repository.UserRepository, jwtSecret string, tokenExpiry time.Duration) AuthService {
+// NewAuthService 創建新的認證服務實例
+func NewAuthService(repo repository.IUserRepository, jwtSecret string, tokenExpiry time.Duration) IAuthService {
 	return &authService{
-		userRepo:    userRepo,
+		userRepo:    repo,
 		jwtSecret:   []byte(jwtSecret),
 		tokenExpiry: tokenExpiry,
 	}
@@ -58,7 +63,7 @@ func (s *authService) Register(ctx context.Context, req *model.UserRegisterReque
 		return nil, err
 	}
 	if existingUser != nil {
-		return nil, ErrUserExists
+		return nil, ErrUsernameTaken
 	}
 
 	// 檢查郵箱是否已存在
@@ -70,134 +75,82 @@ func (s *authService) Register(ctx context.Context, req *model.UserRegisterReque
 		return nil, ErrUserExists
 	}
 
-	// 創建新用戶
 	user := &model.User{
-		ID:        uuid.New().String(),
-		Username:  req.Username,
-		Email:     req.Email,
-		Password:  req.Password,
-		Role:      "user",
-		Status:    "active",
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:       uuid.New().String(),
+		Username: req.Username,
+		Email:    req.Email,
+		Password: req.Password,
+		Role:     "user",
+		Status:   "active",
 	}
 
-	// 加密密碼
 	if err := user.HashPassword(); err != nil {
 		return nil, err
 	}
 
-	// 保存用戶
 	if err := s.userRepo.Create(ctx, user); err != nil {
 		return nil, err
 	}
 
-	return &model.UserResponse{
-		ID:        user.ID,
-		Username:  user.Username,
-		Email:     user.Email,
-		Role:      user.Role,
-		Status:    user.Status,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-	}, nil
+	response := user.ToResponse()
+	return &response, nil
 }
 
 // Login 用戶登錄
 func (s *authService) Login(ctx context.Context, req *model.UserLoginRequest) (*model.LoginResponse, error) {
-	// 使用 email 獲取用戶
+	log.Printf("Attempting login for email: %s", req.Email)
+
 	user, err := s.userRepo.GetByEmail(ctx, req.Email)
 	if err != nil {
-		return nil, err
+		log.Printf("Error retrieving user: %v", err)
+		return nil, fmt.Errorf("failed to retrieve user: %w", err)
 	}
 	if user == nil {
-		return nil, ErrUserNotFound
+		log.Printf("No user found with email: %s", req.Email)
+		return nil, ErrInvalidCredentials
 	}
 
-	// 驗證密碼
-	if err := user.CheckPassword(req.Password); err != nil {
-		return nil, ErrInvalidPassword
+	log.Printf("Found user with email: %s, checking password", req.Email)
+	if !user.CheckPassword(req.Password) {
+		log.Printf("Invalid password for user: %s", req.Email)
+		return nil, ErrInvalidCredentials
 	}
 
-	// 生成訪問令牌
 	token, err := s.generateToken(user)
 	if err != nil {
-		return nil, err
+		log.Printf("Error generating token: %v", err)
+		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}
 
-	// 生成刷新令牌
 	refreshToken, err := s.generateRefreshToken(user)
 	if err != nil {
-		return nil, err
+		log.Printf("Error generating refresh token: %v", err)
+		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
+	response := user.ToResponse()
+	log.Printf("Login successful for user: %s", req.Email)
 	return &model.LoginResponse{
-		Token: token,
-		User: model.UserResponse{
-			ID:        user.ID,
-			Username:  user.Username,
-			Email:     user.Email,
-			Role:      user.Role,
-			Status:    user.Status,
-			CreatedAt: user.CreatedAt,
-			UpdatedAt: user.UpdatedAt,
-		},
+		User:         response,
+		Token:        token,
 		RefreshToken: refreshToken,
 	}, nil
 }
 
 // ValidateToken 驗證令牌
 func (s *authService) ValidateToken(ctx context.Context, tokenString string) (*model.UserResponse, error) {
-	// 解析令牌
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return s.jwtSecret, nil
 	})
 
 	if err != nil {
-		return nil, ErrInvalidToken
+		return nil, err
 	}
 
 	if !token.Valid {
 		return nil, ErrInvalidToken
 	}
 
-	// 獲取聲明
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return nil, ErrInvalidToken
-	}
-
-	// 檢查過期時間
-	exp, ok := claims["exp"].(float64)
-	if !ok {
-		return nil, ErrInvalidToken
-	}
-
-	if time.Unix(int64(exp), 0).Before(time.Now()) {
-		return nil, ErrTokenExpired
-	}
-
-	// 獲取用戶 ID
-	userID, ok := claims["sub"].(string)
-	if !ok {
-		return nil, ErrInvalidToken
-	}
-
-	// 獲取用戶信息
-	return s.GetUserByID(ctx, userID)
-}
-
-// RefreshToken 刷新令牌
-func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (*model.LoginResponse, error) {
-	// 解析刷新令牌
-	token, err := jwt.Parse(refreshToken, func(token *jwt.Token) (interface{}, error) {
-		return s.jwtSecret, nil
-	})
-
-	if err != nil || !token.Valid {
-		return nil, ErrInvalidToken
-	}
-
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		return nil, ErrInvalidToken
@@ -208,38 +161,58 @@ func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (*m
 		return nil, ErrInvalidToken
 	}
 
-	// 獲取用戶
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	if user == nil {
-		return nil, ErrUserNotFound
+
+	response := user.ToResponse()
+	return &response, nil
+}
+
+// RefreshToken 刷新令牌
+func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (*model.LoginResponse, error) {
+	token, err := jwt.Parse(refreshToken, func(token *jwt.Token) (interface{}, error) {
+		return s.jwtSecret, nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
 
-	// 生成新的訪問令牌
+	if !token.Valid {
+		return nil, ErrInvalidToken
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, ErrInvalidToken
+	}
+
+	userID, ok := claims["sub"].(string)
+	if !ok {
+		return nil, ErrInvalidToken
+	}
+
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
 	newToken, err := s.generateToken(user)
 	if err != nil {
 		return nil, err
 	}
 
-	// 生成新的刷新令牌
 	newRefreshToken, err := s.generateRefreshToken(user)
 	if err != nil {
 		return nil, err
 	}
 
+	response := user.ToResponse()
 	return &model.LoginResponse{
-		Token: newToken,
-		User: model.UserResponse{
-			ID:        user.ID,
-			Username:  user.Username,
-			Email:     user.Email,
-			Role:      user.Role,
-			Status:    user.Status,
-			CreatedAt: user.CreatedAt,
-			UpdatedAt: user.UpdatedAt,
-		},
+		User:         response,
+		Token:        newToken,
 		RefreshToken: newRefreshToken,
 	}, nil
 }
@@ -250,19 +223,9 @@ func (s *authService) GetUserByID(ctx context.Context, id string) (*model.UserRe
 	if err != nil {
 		return nil, err
 	}
-	if user == nil {
-		return nil, ErrUserNotFound
-	}
 
-	return &model.UserResponse{
-		ID:        user.ID,
-		Username:  user.Username,
-		Email:     user.Email,
-		Role:      user.Role,
-		Status:    user.Status,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-	}, nil
+	response := user.ToResponse()
+	return &response, nil
 }
 
 // generateToken 生成訪問令牌
@@ -270,7 +233,6 @@ func (s *authService) generateToken(user *model.User) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub":  user.ID,
 		"exp":  time.Now().Add(s.tokenExpiry).Unix(),
-		"iat":  time.Now().Unix(),
 		"role": user.Role,
 	})
 
@@ -281,8 +243,7 @@ func (s *authService) generateToken(user *model.User) (string, error) {
 func (s *authService) generateRefreshToken(user *model.User) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": user.ID,
-		"exp": time.Now().Add(s.tokenExpiry * 24).Unix(), // 刷新令牌有效期更長
-		"iat": time.Now().Unix(),
+		"exp": time.Now().Add(s.tokenExpiry * 24).Unix(),
 	})
 
 	return token.SignedString(s.jwtSecret)

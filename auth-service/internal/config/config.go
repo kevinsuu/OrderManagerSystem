@@ -4,13 +4,12 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"time"
 )
 
 // Config 應用配置
 type Config struct {
 	Server   ServerConfig
-	Database DatabaseConfig
+	Firebase FirebaseConfig
 	JWT      JWTConfig
 }
 
@@ -19,78 +18,43 @@ type ServerConfig struct {
 	Address string
 }
 
-// DatabaseConfig 數據庫配置
-type DatabaseConfig struct {
-	DSN                    string
-	MaxIdleConns           int
-	MaxOpenConns           int
-	ConnMaxLifetimeMinutes int
+// FirebaseConfig Firebase配置
+type FirebaseConfig struct {
+	CredentialsFile string
+	ProjectID       string
 }
 
 // JWTConfig JWT配置
 type JWTConfig struct {
-	Secret      string
-	TokenExpiry time.Duration
+	Secret        string
+	ExpiryMinutes int
 }
 
 // LoadConfig 加載配置
 func LoadConfig() *Config {
 	return &Config{
-		Server:   loadServerConfig(),
-		Database: loadDatabaseConfig(),
-		JWT:      loadJWTConfig(),
+		Server: ServerConfig{
+			Address: ":8083",
+		},
+		Firebase: FirebaseConfig{
+			CredentialsFile: os.Getenv("FIREBASE_CREDENTIALS"),
+			ProjectID:       os.Getenv("FIREBASE_PROJECT_ID"),
+		},
+		JWT: JWTConfig{
+			Secret:        os.Getenv("JWT_SECRET"),
+			ExpiryMinutes: getEnvAsInt("JWT_TOKEN_EXPIRY_MINUTES", 60),
+		},
 	}
 }
 
-// loadServerConfig 加載服務器配置
-func loadServerConfig() ServerConfig {
-	return ServerConfig{
-		Address: getEnv("SERVER_ADDRESS", ":8083"),
+// getEnvAsInt 獲取環境變量，如果不存在則返回默認值
+func getEnvAsInt(key string, defaultVal int) int {
+	if value, exists := os.LookupEnv(key); exists {
+		if intVal, err := strconv.Atoi(value); err == nil {
+			return intVal
+		}
 	}
-}
-
-// loadDatabaseConfig 加載數據庫配置
-func loadDatabaseConfig() DatabaseConfig {
-	maxIdleConns, _ := strconv.Atoi(getEnv("DB_MAX_IDLE_CONNS", "10"))
-	maxOpenConns, _ := strconv.Atoi(getEnv("DB_MAX_OPEN_CONNS", "100"))
-	connMaxLifetime, _ := strconv.Atoi(getEnv("DB_CONN_MAX_LIFETIME_MINUTES", "60"))
-
-	return DatabaseConfig{
-		DSN:                    getDatabaseDSN(),
-		MaxIdleConns:           maxIdleConns,
-		MaxOpenConns:           maxOpenConns,
-		ConnMaxLifetimeMinutes: connMaxLifetime,
-	}
-}
-
-// loadJWTConfig 加載JWT配置
-func loadJWTConfig() JWTConfig {
-	tokenExpiryMinutes, _ := strconv.Atoi(getEnv("JWT_TOKEN_EXPIRY_MINUTES", "60"))
-
-	return JWTConfig{
-		Secret:      getEnv("JWT_SECRET", "your-secret-key"),
-		TokenExpiry: time.Duration(tokenExpiryMinutes) * time.Minute,
-	}
-}
-
-// getDatabaseDSN 獲取數據庫連接字符串
-func getDatabaseDSN() string {
-	// 如果提供了完整的 DSN，直接使用
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn != "" {
-		return dsn
-	}
-
-	// 否則從各個組件構建 DSN
-	host := getEnv("DB_HOST", "localhost")
-	port := getEnv("DB_PORT", "5432")
-	user := getEnv("DB_USER", "postgres")
-	password := getEnv("DB_PASSWORD", "password")
-	dbname := getEnv("DB_NAME", "auth_db")
-	sslmode := getEnv("DB_SSLMODE", "disable")
-
-	return "host=" + host + " port=" + port + " user=" + user + " password=" + password +
-		" dbname=" + dbname + " sslmode=" + sslmode
+	return defaultVal
 }
 
 // getEnv 獲取環境變量，如果不存在則返回默認值

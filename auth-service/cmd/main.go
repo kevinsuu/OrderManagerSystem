@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"os/signal"
@@ -10,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/kevinsuu/OrderManagerSystem/auth-service/internal/config"
 	"github.com/kevinsuu/OrderManagerSystem/auth-service/internal/handler"
+	"github.com/kevinsuu/OrderManagerSystem/auth-service/internal/infrastructure/firebase"
 	"github.com/kevinsuu/OrderManagerSystem/auth-service/internal/middleware"
 	"github.com/kevinsuu/OrderManagerSystem/auth-service/internal/repository"
 	"github.com/kevinsuu/OrderManagerSystem/auth-service/internal/service"
@@ -19,14 +21,18 @@ func main() {
 	// 加載配置
 	cfg := config.LoadConfig()
 
-	// 初始化資料庫連接
-	db := repository.NewPostgresDB(cfg.Database)
+	// 初始化 Firebase
+	ctx := context.Background()
+	fb, err := firebase.InitFirebase(ctx, cfg.Firebase.CredentialsFile, cfg.Firebase.ProjectID)
+	if err != nil {
+		log.Fatalf("Failed to initialize Firebase: %v", err)
+	}
 
 	// 初始化存儲層
-	userRepo := repository.NewUserRepository(db)
+	userRepo := repository.NewUserRepository(fb.Database)
 
 	// 初始化服務層
-	authService := service.NewAuthService(userRepo, "your-secret-key", 24*time.Hour)
+	authService := service.NewAuthService(userRepo, cfg.JWT.Secret, time.Duration(cfg.JWT.ExpiryMinutes)*time.Minute)
 
 	// 初始化 HTTP 處理器
 	handler := handler.NewHandler(authService)
