@@ -22,6 +22,9 @@ WORKDIR /app
 # 從構建階段複製二進制文件
 COPY --from=builder /app/auth-service .
 
+# 複製 Firebase 憑證
+COPY order-manager-system-a6931-firebase-adminsdk-fbsvc-65d3904bc6.json /app/firebase-credentials.json
+
 # 暴露端口
 EXPOSE 8081
 

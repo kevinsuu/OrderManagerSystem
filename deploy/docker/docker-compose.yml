@@ -7,19 +7,13 @@ services:
     ports:
       - "8083:8083" 
     environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=password
-      - DB_NAME=auth_db
-      - REDIS_ADDR=redis:6379
-      - REDIS_PASSWORD=
-      - REDIS_DB=0
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/sa/order-manager-system-a6931-firebase-adminsdk-fbsvc-65d3904bc6.json
+      - FIREBASE_CREDENTIALS=/app/sa/order-manager-system-a6931-firebase-adminsdk-fbsvc-65d3904bc6.json
+      - FIREBASE_PROJECT_ID=order-manager-system-a6931
+      - JWT_SECRET=your-secret-key
+      - JWT_TOKEN_EXPIRY_MINUTES=60
+    volumes:
+      - ../../order-manager-system-a6931-firebase-adminsdk-fbsvc-65d3904bc6.json:/app/sa/order-manager-system-a6931-firebase-adminsdk-fbsvc-65d3904bc6.json
     networks:
       - oms-network
     healthcheck:
