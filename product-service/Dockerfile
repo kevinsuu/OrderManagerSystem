@@ -1,15 +1,14 @@
 # 使用多階段構建
 FROM golang:1.22-alpine AS builder
 
+# 設置工作目錄
 WORKDIR /app
 
-# 複製 go.mod 和 go.sum
-COPY go.mod ./
-# 先生成 go.sum
-RUN go mod download && go mod tidy
-
-# 複製源代碼
+# 複製整個專案
 COPY . .
+
+# 下載依賴
+RUN go mod download
 
 # 編譯
 RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/main.go
