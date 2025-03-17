@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"strings"
 
@@ -49,11 +50,21 @@ func (h *Handler) AddToCart(c *gin.Context) {
 		return
 	}
 
-	// 直接將完整的 Authorization header 傳遞給 context，不需要額外處理
-	ctx := context.WithValue(c.Request.Context(), client.TokenKey, token)
+	// 獲取用戶ID
 	userID := c.GetString("userID")
+	log.Printf("AddToCart handler called for user: %s, product: %s", userID, req.ProductID)
+
+	if userID == "" {
+		log.Printf("Error: userID is empty in AddToCart handler")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user ID not found in token"})
+		return
+	}
+
+	// 直接將完整的 Authorization header 傳遞給 context
+	ctx := context.WithValue(c.Request.Context(), client.TokenKey, token)
 
 	if err := h.cartService.AddItem(ctx, userID, &req); err != nil {
+		log.Printf("Error in AddItem service: %v", err)
 		switch {
 		case err == service.ErrProductNotFound:
 			c.JSON(http.StatusNotFound, gin.H{"error": "product not found"})
@@ -69,6 +80,7 @@ func (h *Handler) AddToCart(c *gin.Context) {
 		return
 	}
 
+	log.Printf("Item successfully added to cart for user: %s", userID)
 	c.JSON(http.StatusOK, gin.H{"message": "Item added to cart successfully"})
 }
 

@@ -42,14 +42,21 @@ func NewCartService(cartRepo repository.CartRepository, productClient client.Pro
 }
 
 func (s *cartService) GetCart(ctx context.Context, userID string) (*model.CartResponse, error) {
+	fmt.Printf("GetCart called for userID: %s", userID)
+
 	cart, err := s.cartRepo.GetCart(ctx, userID)
 	if err != nil {
+		fmt.Printf("Error getting cart from repository: %v", err)
 		return nil, err
 	}
+
+	fmt.Printf("Cart retrieved from repository: %+v", cart)
 
 	response := &model.CartResponse{
 		Items: cart.Items,
 	}
+
+	log.Printf("Cart items count: %d", len(cart.Items))
 
 	// 計算已選商品的總數和總金額
 	for _, item := range cart.Items {
@@ -59,12 +66,20 @@ func (s *cartService) GetCart(ctx context.Context, userID string) (*model.CartRe
 		}
 	}
 
+	log.Printf("Cart response prepared: %+v", response)
+
 	return response, nil
 }
 
 func (s *cartService) AddItem(ctx context.Context, userID string, req *model.AddToCartRequest) error {
 	// 添加日誌
 	log.Printf("Attempting to add product %s with quantity %d for user %s", req.ProductID, req.Quantity, userID)
+
+	// 確保userID不為空
+	if userID == "" {
+		log.Printf("Error: userID is empty")
+		return fmt.Errorf("user ID cannot be empty")
+	}
 
 	// 調用 product service 檢查商品是否存在及庫存
 	productInfo, err := s.productClient.GetProduct(ctx, req.ProductID)
@@ -78,10 +93,10 @@ func (s *cartService) AddItem(ctx context.Context, userID string, req *model.Add
 	}
 
 	// 添加庫存檢查的日誌
-	log.Printf("productInfo: %+v", productInfo)
+	log.Printf("Product info received: %+v", productInfo)
 	log.Printf("Product %s stock count: %d, requested quantity: %d", req.ProductID, productInfo.Stock, req.Quantity)
 
-	// 檢查庫存 - 修改這部分邏輯
+	// 檢查庫存
 	if productInfo.Stock < req.Quantity {
 		return fmt.Errorf("insufficient stock: available %d, requested %d", productInfo.Stock, req.Quantity)
 	}
@@ -89,7 +104,8 @@ func (s *cartService) AddItem(ctx context.Context, userID string, req *model.Add
 	// 檢查購物車中是否已有該商品
 	cart, err := s.cartRepo.GetCart(ctx, userID)
 	if err != nil {
-		return fmt.Errorf("failed to get cart: %w", err)
+		log.Printf("Error getting cart: %v", err)
+		// 這裡不直接返回錯誤，因為GetCart已經處理了創建新購物車的邏輯
 	}
 
 	// 計算購物車中已有的數量
@@ -112,8 +128,12 @@ func (s *cartService) AddItem(ctx context.Context, userID string, req *model.Add
 	imageURL := ""
 	if len(productInfo.Images) > 0 {
 		imageURL = productInfo.Images[0].URL
+		log.Printf("Using image URL: %s", imageURL)
+	} else {
+		log.Printf("No images found for product %s", req.ProductID)
 	}
 
+	// 創建購物車項目
 	item := model.CartItem{
 		ProductID:  req.ProductID,
 		Name:       productInfo.Name,
@@ -125,6 +145,9 @@ func (s *cartService) AddItem(ctx context.Context, userID string, req *model.Add
 		UpdatedAt:  time.Now(),
 	}
 
+	log.Printf("Cart item created: %+v", item)
+
+	// 添加到購物車
 	if err := s.cartRepo.AddItem(ctx, userID, item); err != nil {
 		log.Printf("Error adding item to cart: %v", err)
 		return fmt.Errorf("failed to add item to cart: %w", err)
