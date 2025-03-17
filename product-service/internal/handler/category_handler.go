@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/kevinsuu/OrderManagerSystem/product-service/internal/model"
 	"github.com/kevinsuu/OrderManagerSystem/product-service/internal/service"
@@ -45,6 +46,11 @@ func (h *Handler) GetCategory(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if category == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "category not found"})
 		return
 	}
 
@@ -100,5 +106,3 @@ func (h *Handler) GetSubcategories(c *gin.Context) {
 
 	c.JSON(http.StatusOK, categories)
 }
-
-// ... 實現其他處理器方法 ... 
