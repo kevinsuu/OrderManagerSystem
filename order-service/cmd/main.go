@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"os/signal"
@@ -9,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/kevinsuu/OrderManagerSystem/order-service/internal/config"
 	"github.com/kevinsuu/OrderManagerSystem/order-service/internal/handler"
+	"github.com/kevinsuu/OrderManagerSystem/order-service/internal/infrastructure/firebase"
 	"github.com/kevinsuu/OrderManagerSystem/order-service/internal/middleware"
 	"github.com/kevinsuu/OrderManagerSystem/order-service/internal/repository"
 	"github.com/kevinsuu/OrderManagerSystem/order-service/internal/service"
@@ -18,25 +20,25 @@ func main() {
 	// 加載配置
 	cfg := config.LoadConfig()
 
-	// 初始化資料庫連接
-	db := repository.NewPostgresDB(cfg.Database)
-
-	// 初始化 Redis (用於快取)
-	redisClient := repository.NewRedisRepository(cfg.Redis)
-	defer redisClient.Close()
+	// 初始化 Firebase
+	ctx := context.Background()
+	fb, err := firebase.InitFirebase(ctx, cfg.Firebase.CredentialsFile, cfg.Firebase.ProjectID)
+	if err != nil {
+		log.Fatalf("Failed to initialize Firebase: %v", err)
+	}
 
 	// 初始化存儲層
-	orderRepo := repository.NewOrderRepository(db)
-	
+	orderRepo := repository.NewOrderRepository(fb.Database)
+
 	// 初始化服務層
-	orderService := service.NewOrderService(orderRepo, redisClient)
+	orderService := service.NewOrderService(orderRepo)
 
 	// 初始化 HTTP 處理器
 	handler := handler.NewHandler(orderService)
 
 	// 設置 Gin 路由
 	router := gin.Default()
-	
+
 	// 中間件
 	router.Use(gin.Recovery())
 	router.Use(gin.Logger())
@@ -49,7 +51,7 @@ func main() {
 	{
 		// 添加 auth middleware
 		api.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
-		
+
 		orders := api.Group("/orders")
 		{
 			orders.POST("/", handler.CreateOrder)
