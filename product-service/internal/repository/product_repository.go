@@ -2,10 +2,12 @@ package repository
 
 import (
 	"context"
-	"errors"
+	"fmt"
+	"strings"
+	"time"
 
+	"firebase.google.com/go/db"
 	"github.com/kevinsuu/OrderManagerSystem/product-service/internal/model"
-	"gorm.io/gorm"
 )
 
 // ProductRepository 產品存儲接口
@@ -21,143 +23,141 @@ type ProductRepository interface {
 }
 
 type productRepository struct {
-	db *gorm.DB
+	db *db.Client
 }
 
 // NewProductRepository 創建產品存儲實例
-func NewProductRepository(db *gorm.DB) ProductRepository {
+func NewProductRepository(db *db.Client) *productRepository {
 	return &productRepository{db: db}
 }
 
 // Create 創建產品
 func (r *productRepository) Create(ctx context.Context, product *model.Product) error {
-	return r.db.WithContext(ctx).Create(product).Error
+	ref := r.db.NewRef("products")
+	newRef, err := ref.Push(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("error creating product: %v", err)
+	}
+
+	product.ID = newRef.Key
+	product.CreatedAt = time.Now()
+	product.UpdatedAt = time.Now()
+
+	if err := newRef.Set(ctx, product); err != nil {
+		return fmt.Errorf("error saving product: %v", err)
+	}
+
+	return nil
 }
 
 // GetByID 根據ID獲取產品
 func (r *productRepository) GetByID(ctx context.Context, id string) (*model.Product, error) {
+	ref := r.db.NewRef("products").Child(id)
 	var product model.Product
-	if err := r.db.WithContext(ctx).
-		Preload("Images").
-		Preload("Attributes").
-		First(&product, "id = ?", id).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+	if err := ref.Get(ctx, &product); err != nil {
+		if err.Error() == "http error status: 404; reason: Permission denied" {
 			return nil, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("error getting product: %v", err)
 	}
+
+	// 檢查是否為空數據
+	if product.ID == "" {
+		return nil, nil
+	}
+
+	// 確保 ID 被正確設置
+	product.ID = id
 	return &product, nil
-}
-
-// Update 更新產品
-func (r *productRepository) Update(ctx context.Context, product *model.Product) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// 更新產品基本信息
-		if err := tx.Save(product).Error; err != nil {
-			return err
-		}
-
-		// 更新圖片
-		if len(product.Images) > 0 {
-			if err := tx.Where("product_id = ?", product.ID).Delete(&model.Image{}).Error; err != nil {
-				return err
-			}
-			if err := tx.Create(&product.Images).Error; err != nil {
-				return err
-			}
-		}
-
-		// 更新屬性
-		if len(product.Attributes) > 0 {
-			if err := tx.Where("product_id = ?", product.ID).Delete(&model.Attribute{}).Error; err != nil {
-				return err
-			}
-			if err := tx.Create(&product.Attributes).Error; err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
-}
-
-// Delete 刪除產品
-func (r *productRepository) Delete(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// 刪除相關的圖片和屬性
-		if err := tx.Where("product_id = ?", id).Delete(&model.Image{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("product_id = ?", id).Delete(&model.Attribute{}).Error; err != nil {
-			return err
-		}
-		// 軟刪除產品
-		return tx.Delete(&model.Product{}, "id = ?", id).Error
-	})
 }
 
 // List 獲取產品列表
 func (r *productRepository) List(ctx context.Context, page, limit int) ([]model.Product, int64, error) {
-	var products []model.Product
-	var total int64
-
-	offset := (page - 1) * limit
-
-	if err := r.db.WithContext(ctx).Model(&model.Product{}).Count(&total).Error; err != nil {
-		return nil, 0, err
+	ref := r.db.NewRef("products")
+	var products map[string]model.Product
+	if err := ref.Get(ctx, &products); err != nil {
+		return nil, 0, fmt.Errorf("error getting products: %v", err)
 	}
 
-	if err := r.db.WithContext(ctx).
-		Preload("Images").
-		Preload("Attributes").
-		Offset(offset).
-		Limit(limit).
-		Find(&products).Error; err != nil {
-		return nil, 0, err
+	result := make([]model.Product, 0, len(products))
+	for _, product := range products {
+		result = append(result, product)
 	}
 
-	return products, total, nil
+	total := int64(len(result))
+	start := (page - 1) * limit
+	end := start + limit
+	if end > len(result) {
+		end = len(result)
+	}
+	if start >= len(result) {
+		return []model.Product{}, total, nil
+	}
+
+	return result[start:end], total, nil
+}
+
+// Update 更新產品
+func (r *productRepository) Update(ctx context.Context, product *model.Product) error {
+	ref := r.db.NewRef("products").Child(product.ID)
+	product.UpdatedAt = time.Now()
+	if err := ref.Set(ctx, product); err != nil {
+		return fmt.Errorf("error updating product: %v", err)
+	}
+	return nil
+}
+
+// Delete 刪除產品
+func (r *productRepository) Delete(ctx context.Context, id string) error {
+	ref := r.db.NewRef("products").Child(id)
+	if err := ref.Delete(ctx); err != nil {
+		return fmt.Errorf("error deleting product: %v", err)
+	}
+	return nil
 }
 
 // GetByCategoryID 根據分類獲取產品
 func (r *productRepository) GetByCategoryID(ctx context.Context, categoryID string, page, limit int) ([]model.Product, int64, error) {
-	var products []model.Product
-	var total int64
-
-	offset := (page - 1) * limit
-
-	if err := r.db.WithContext(ctx).Model(&model.Product{}).
-		Where("category_id = ?", categoryID).
-		Count(&total).Error; err != nil {
-		return nil, 0, err
+	ref := r.db.NewRef("products")
+	var products map[string]model.Product
+	if err := ref.Get(ctx, &products); err != nil {
+		return nil, 0, fmt.Errorf("error getting products: %v", err)
 	}
 
-	if err := r.db.WithContext(ctx).
-		Preload("Images").
-		Preload("Attributes").
-		Where("category_id = ?", categoryID).
-		Offset(offset).
-		Limit(limit).
-		Find(&products).Error; err != nil {
-		return nil, 0, err
+	var filteredProducts []model.Product
+	for _, product := range products {
+		if product.Category == categoryID {
+			filteredProducts = append(filteredProducts, product)
+		}
 	}
 
-	return products, total, nil
+	total := int64(len(filteredProducts))
+	start := (page - 1) * limit
+	end := start + limit
+	if end > len(filteredProducts) {
+		end = len(filteredProducts)
+	}
+
+	return filteredProducts[start:end], total, nil
 }
 
 // UpdateStock 更新庫存
 func (r *productRepository) UpdateStock(ctx context.Context, id string, quantity int) error {
-	result := r.db.WithContext(ctx).
-		Model(&model.Product{}).
-		Where("id = ? AND stock >= ?", id, -quantity).
-		UpdateColumn("stock", gorm.Expr("stock + ?", quantity))
-
-	if result.Error != nil {
-		return result.Error
+	ref := r.db.NewRef("products").Child(id)
+	var product model.Product
+	if err := ref.Get(ctx, &product); err != nil {
+		return fmt.Errorf("error getting product: %v", err)
 	}
 
-	if result.RowsAffected == 0 {
-		return errors.New("insufficient stock")
+	if product.Stock+quantity < 0 {
+		return fmt.Errorf("insufficient stock")
+	}
+
+	product.Stock += quantity
+	product.UpdatedAt = time.Now()
+
+	if err := ref.Set(ctx, &product); err != nil {
+		return fmt.Errorf("error updating stock: %v", err)
 	}
 
 	return nil
@@ -165,28 +165,31 @@ func (r *productRepository) UpdateStock(ctx context.Context, id string, quantity
 
 // SearchProducts 搜索產品
 func (r *productRepository) SearchProducts(ctx context.Context, query string, page, limit int) ([]model.Product, int64, error) {
-	var products []model.Product
-	var total int64
-
-	offset := (page - 1) * limit
-
-	searchQuery := "%" + query + "%"
-
-	if err := r.db.WithContext(ctx).Model(&model.Product{}).
-		Where("name LIKE ? OR description LIKE ?", searchQuery, searchQuery).
-		Count(&total).Error; err != nil {
-		return nil, 0, err
+	ref := r.db.NewRef("products")
+	var products map[string]model.Product
+	if err := ref.Get(ctx, &products); err != nil {
+		return nil, 0, fmt.Errorf("error getting products: %v", err)
 	}
 
-	if err := r.db.WithContext(ctx).
-		Preload("Images").
-		Preload("Attributes").
-		Where("name LIKE ? OR description LIKE ?", searchQuery, searchQuery).
-		Offset(offset).
-		Limit(limit).
-		Find(&products).Error; err != nil {
-		return nil, 0, err
+	var filteredProducts []model.Product
+	for _, product := range products {
+		if containsIgnoreCase(product.Name, query) || containsIgnoreCase(product.Description, query) {
+			filteredProducts = append(filteredProducts, product)
+		}
 	}
 
-	return products, total, nil
+	total := int64(len(filteredProducts))
+	start := (page - 1) * limit
+	end := start + limit
+	if end > len(filteredProducts) {
+		end = len(filteredProducts)
+	}
+
+	return filteredProducts[start:end], total, nil
+}
+
+func containsIgnoreCase(s, substr string) bool {
+	s = strings.ToLower(s)
+	substr = strings.ToLower(substr)
+	return strings.Contains(s, substr)
 }
