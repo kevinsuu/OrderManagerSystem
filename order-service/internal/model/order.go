@@ -17,21 +17,21 @@ const (
 
 // Order 訂單模型
 type Order struct {
-	ID          string      `json:"id" gorm:"primaryKey;type:string"`
-	UserID      string      `json:"userId" gorm:"index;type:string"`
+	ID          string      `json:"id"`
+	UserID      string      `json:"userId"`
 	Status      OrderStatus `json:"status"`
 	TotalAmount float64     `json:"totalAmount"`
-	Items       []OrderItem `json:"items" gorm:"foreignKey:OrderID;constraint:OnDelete:CASCADE"`
-	Address     Address     `json:"address" gorm:"embedded"`
+	Items       []OrderItem `json:"items"`
+	Address     Address     `json:"address"`
 	CreatedAt   time.Time   `json:"createdAt"`
 	UpdatedAt   time.Time   `json:"updatedAt"`
-	DeletedAt   *time.Time  `json:"deletedAt,omitempty" gorm:"index"`
+	DeletedAt   *time.Time  `json:"deletedAt,omitempty"`
 }
 
 // OrderItem 訂單項目
 type OrderItem struct {
-	ID        string    `json:"id" gorm:"primaryKey;type:string"`
-	OrderID   string    `json:"orderId" gorm:"type:string"`
+	ID        string    `json:"id"`
+	OrderID   string    `json:"orderId"`
 	ProductID string    `json:"productId"`
 	Quantity  int       `json:"quantity"`
 	Price     float64   `json:"price"`
@@ -75,19 +75,20 @@ type OrderListResponse struct {
 	Limit  int             `json:"limit"`
 }
 
-// CreateOrderFromCartRequest 從購物車創建訂單的請求模型
+// CreateOrderFromCartRequest 從購物車創建訂單請求
 type CreateOrderFromCartRequest struct {
-	UserID    string     `json:"userId"`
 	CartItems []CartItem `json:"cartItems"`
+	Address   Address    `json:"address"`
 }
 
+// CartItem 購物車項目
 type CartItem struct {
 	ProductID string  `json:"productId"`
 	Quantity  int     `json:"quantity"`
 	Price     float64 `json:"price"`
 }
 
-// CreateOrderResponse 創建訂單的響應
+// CreateOrderResponse 創建訂單響應
 type CreateOrderResponse struct {
 	OrderID     string    `json:"orderId"`
 	TotalAmount float64   `json:"totalAmount"`
