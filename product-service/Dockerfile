@@ -4,11 +4,14 @@ FROM golang:1.22-alpine AS builder
 # 設置工作目錄
 WORKDIR /app
 
-# 複製整個專案
-COPY . .
+# 先複製 go.mod 和 go.sum
+COPY go.mod go.sum ./
 
 # 下載依賴
 RUN go mod download
+
+# 再複製其他源代碼
+COPY . .
 
 # 編譯
 RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/main.go
