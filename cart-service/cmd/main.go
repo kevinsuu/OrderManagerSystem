@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,27 +13,52 @@ import (
 	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/client"
 	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/config"
 	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/handler"
+	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/infrastructure/firebase"
 	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/middleware"
 	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/repository"
 	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/service"
 )
 
+// 新增這個函數
+func checkServiceHealth(serviceURL, serviceName string) error {
+	resp, err := http.Get(serviceURL + "/health")
+	if err != nil {
+		return fmt.Errorf("failed to connect to %s: %v", serviceName, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("%s health check failed with status: %d", serviceName, resp.StatusCode)
+	}
+
+	log.Printf("%s is healthy", serviceName)
+	return nil
+}
+
 func main() {
 	// 加載配置
 	cfg := config.LoadConfig()
+	if err := checkServiceHealth(cfg.ProductService.BaseURL, "Product Service"); err != nil {
+		fmt.Printf("Warning: %v", err)
+	}
 
-	// 初始化資料庫連接
-	db := repository.NewPostgresDB(cfg.Database)
+	if err := checkServiceHealth(cfg.OrderService.BaseURL, "Order Service"); err != nil {
+		fmt.Printf("Warning: %v", err)
+	}
 
-	// 初始化 Redis
-	redisClient := repository.NewRedisRepository(cfg.Redis)
-	defer redisClient.Close()
+	// 初始化 Firebase
+	ctx := context.Background()
+	fb, err := firebase.InitFirebase(ctx, cfg.Firebase.CredentialsFile, cfg.Firebase.ProjectID)
+	if err != nil {
+		log.Fatalf("Failed to initialize Firebase: %v", err)
+	}
 
-	// 初始化 product client
+	// 初始化存儲層
+	cartRepo := repository.NewCartRepository(fb.Database)
+
+	// 初始化客戶端
 	productClient := client.NewProductClient(cfg.ProductService.BaseURL)
 	orderClient := client.NewOrderClient(cfg.OrderService.BaseURL)
-	// 初始化存儲層
-	cartRepo := repository.NewCartRepository(redisClient, db)
 
 	// 初始化服務層
 	cartService := service.NewCartService(cartRepo, productClient, orderClient)
