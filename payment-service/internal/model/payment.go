@@ -19,17 +19,17 @@ const (
 type PaymentMethod string
 
 const (
-	PaymentMethodCreditCard PaymentMethod = "credit_card"
-	PaymentMethodDebitCard  PaymentMethod = "debit_card"
-	PaymentMethodBankTransfer PaymentMethod = "bank_transfer"
+	PaymentMethodCreditCard    PaymentMethod = "credit_card"
+	PaymentMethodDebitCard     PaymentMethod = "debit_card"
+	PaymentMethodBankTransfer  PaymentMethod = "bank_transfer"
 	PaymentMethodDigitalWallet PaymentMethod = "digital_wallet"
 )
 
 // Payment 支付模型
 type Payment struct {
-	ID            string        `json:"id" gorm:"primaryKey"`
-	OrderID       string        `json:"orderId" gorm:"index"`
-	UserID        string        `json:"userId" gorm:"index"`
+	ID            string        `json:"id"`
+	OrderID       string        `json:"orderId"`
+	UserID        string        `json:"userId"`
 	Amount        float64       `json:"amount"`
 	Currency      string        `json:"currency"`
 	Status        PaymentStatus `json:"status"`
@@ -39,13 +39,13 @@ type Payment struct {
 	Metadata      string        `json:"metadata,omitempty"` // JSON 字符串，存儲額外信息
 	CreatedAt     time.Time     `json:"createdAt"`
 	UpdatedAt     time.Time     `json:"updatedAt"`
-	DeletedAt     *time.Time    `json:"deletedAt,omitempty" gorm:"index"`
+	DeletedAt     *time.Time    `json:"deletedAt,omitempty"`
 }
 
 // Refund 退款模型
 type Refund struct {
-	ID            string    `json:"id" gorm:"primaryKey"`
-	PaymentID     string    `json:"paymentId" gorm:"index"`
+	ID            string    `json:"id"`
+	PaymentID     string    `json:"paymentId"`
 	Amount        float64   `json:"amount"`
 	Reason        string    `json:"reason"`
 	Status        string    `json:"status"`
@@ -57,7 +57,7 @@ type Refund struct {
 // CreatePaymentRequest 創建支付請求
 type CreatePaymentRequest struct {
 	OrderID  string        `json:"orderId" binding:"required"`
-	UserID   string        `json:"-"`  // 從 JWT token 中獲取，不從 JSON 讀取
+	UserID   string        `json:"-"` // 從 JWT token 中獲取，不從 JSON 讀取
 	Amount   float64       `json:"amount" binding:"required,gt=0"`
 	Currency string        `json:"currency" binding:"required"`
 	Method   PaymentMethod `json:"method" binding:"required"`
@@ -79,9 +79,9 @@ type PaymentResponse struct {
 // PaymentListResponse 支付列表響應
 type PaymentListResponse struct {
 	Payments []PaymentResponse `json:"payments"`
-	Total    int64            `json:"total"`
-	Page     int              `json:"page"`
-	Limit    int              `json:"limit"`
+	Total    int64             `json:"total"`
+	Page     int               `json:"page"`
+	Limit    int               `json:"limit"`
 }
 
 // PaymentGatewayResponse 支付網關響應

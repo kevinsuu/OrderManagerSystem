@@ -50,14 +50,6 @@ func loadServerConfig() ServerConfig {
 	}
 }
 
-// loadFirebaseConfig 加載Firebase配置
-func loadFirebaseConfig() FirebaseConfig {
-	return FirebaseConfig{
-		CredentialsFile: getEnv("FIREBASE_CREDENTIALS", ""),
-		ProjectID:       getEnv("FIREBASE_PROJECT_ID", ""),
-		DatabaseURL:     getEnv("FIREBASE_DATABASE_URL", "https://order-manager-system-a6931-default-rtdb.firebaseio.com"),
-	}
-}
 
 // getEnv 獲取環境變量，如果不存在則返回默認值
 func getEnv(key, defaultValue string) string {
