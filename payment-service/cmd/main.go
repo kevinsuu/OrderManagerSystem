@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/kevinsuu/OrderManagerSystem/payment-service/internal/config"
 	"github.com/kevinsuu/OrderManagerSystem/payment-service/internal/handler"
+	"github.com/kevinsuu/OrderManagerSystem/payment-service/internal/infrastructure/firebase"
 	"github.com/kevinsuu/OrderManagerSystem/payment-service/internal/middleware"
 	"github.com/kevinsuu/OrderManagerSystem/payment-service/internal/repository"
 	"github.com/kevinsuu/OrderManagerSystem/payment-service/internal/service"
@@ -24,15 +25,16 @@ func main() {
 	// 初始化日誌
 	log.SetFlags(log.LstdFlags | log.Lshortfile | log.Lmicroseconds)
 
-	// 連接數據庫
-	db := repository.NewPostgresDB(cfg.Database)
-
-	// 初始化 Redis
-	rdb := initRedis(cfg)
+	// 初始化 Firebase
+	ctx := context.Background()
+	fb, err := firebase.InitFirebase(ctx, cfg.Firebase.CredentialsFile, cfg.Firebase.ProjectID)
+	if err != nil {
+		log.Fatalf("Failed to initialize Firebase: %v", err)
+	}
 
 	// 初始化依賴
-	paymentRepo := repository.NewPaymentRepository(db)
-	paymentService := service.NewPaymentService(paymentRepo, rdb)
+	paymentRepo := repository.NewPaymentRepository(fb.Database)
+	paymentService := service.NewPaymentService(paymentRepo)
 	paymentHandler := handler.NewHandler(paymentService)
 
 	// 設置路由
@@ -49,17 +51,15 @@ func main() {
 
 		payments := api.Group("/payments")
 		{
-			// 支付管理
-			payments.POST("/", paymentHandler.CreatePayment)
-			payments.GET("/", paymentHandler.ListPayments)
-			payments.GET("/:id", paymentHandler.GetPayment)
-			payments.GET("/order/:orderId", paymentHandler.GetPaymentByOrderID)
+			// 支付管理（按具體到通用的順序排列）
+			payments.GET("/order/:orderId", paymentHandler.GetPaymentByOrderID) // 最具體的路由放在前面
 			payments.GET("/user/:userId", paymentHandler.GetUserPayments)
-
-			// 支付操作
+			payments.POST("/refund", paymentHandler.RefundPayment)
 			payments.POST("/:id/process", paymentHandler.ProcessPayment)
 			payments.POST("/:id/cancel", paymentHandler.CancelPayment)
-			payments.POST("/refund", paymentHandler.RefundPayment)
+			payments.POST("/", paymentHandler.CreatePayment)
+			payments.GET("/", paymentHandler.ListPayments)
+			payments.GET("/:id", paymentHandler.GetPayment) // 最通用的路由放在最後
 		}
 	}
 
@@ -92,9 +92,4 @@ func main() {
 	}
 
 	log.Println("Server exiting")
-}
-
-// initRedis 初始化 Redis 客戶端
-func initRedis(cfg *config.Config) repository.RedisRepository {
-	return repository.NewRedisRepository(cfg.Redis)
 }

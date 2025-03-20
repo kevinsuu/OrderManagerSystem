@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -31,15 +30,13 @@ type PaymentService interface {
 }
 
 type paymentService struct {
-	repo  repository.PaymentRepository
-	redis repository.RedisRepository
+	repo repository.PaymentRepository
 }
 
 // NewPaymentService 創建支付服務實例
-func NewPaymentService(repo repository.PaymentRepository, redis repository.RedisRepository) PaymentService {
+func NewPaymentService(repo repository.PaymentRepository) PaymentService {
 	return &paymentService{
-		repo:  repo,
-		redis: redis,
+		repo: repo,
 	}
 }
 
@@ -61,23 +58,11 @@ func (s *paymentService) CreatePayment(ctx context.Context, req *model.CreatePay
 		return nil, fmt.Errorf("failed to create payment: %w", err)
 	}
 
-	// 清除相關快取
-	s.clearPaymentCache(ctx, payment.UserID)
-
 	return payment, nil
 }
 
 // GetPayment 獲取支付詳情
 func (s *paymentService) GetPayment(ctx context.Context, id string) (*model.PaymentResponse, error) {
-	// 嘗試從快取獲取
-	cacheKey := fmt.Sprintf("payment:%s", id)
-	if cached, err := s.redis.Get(ctx, cacheKey); err == nil {
-		var response model.PaymentResponse
-		if err := json.Unmarshal([]byte(cached), &response); err == nil {
-			return &response, nil
-		}
-	}
-
 	payment, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get payment: %w", err)
@@ -95,11 +80,6 @@ func (s *paymentService) GetPayment(ctx context.Context, id string) (*model.Paym
 	response := &model.PaymentResponse{
 		Payment:       *payment,
 		RefundHistory: refunds,
-	}
-
-	// 設置快取
-	if cached, err := json.Marshal(response); err == nil {
-		s.redis.Set(ctx, cacheKey, cached, 1*time.Hour)
 	}
 
 	return response, nil
@@ -211,10 +191,6 @@ func (s *paymentService) ProcessPayment(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to update payment: %w", err)
 	}
 
-	// 清除快取
-	s.clearPaymentCache(ctx, payment.UserID)
-	s.redis.Del(ctx, fmt.Sprintf("payment:%s", id))
-
 	return nil
 }
 
@@ -242,30 +218,22 @@ func (s *paymentService) RefundPayment(ctx context.Context, req *model.RefundReq
 		PaymentID: payment.ID,
 		Amount:    req.Amount,
 		Reason:    req.Reason,
-		Status:    "pending",
+		Status:    "success", // 簡化處理，直接設置為成功
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-
-	// 模擬退款處理
-	refund.Status = "success"
-	refund.TransactionID = uuid.New().String()
 
 	if err := s.repo.CreateRefund(ctx, refund); err != nil {
 		return fmt.Errorf("failed to create refund: %w", err)
 	}
 
 	// 更新支付狀態
-	if req.Amount == payment.Amount {
-		payment.Status = model.PaymentStatusRefunded
-		if err := s.repo.Update(ctx, payment); err != nil {
-			return fmt.Errorf("failed to update payment: %w", err)
-		}
-	}
+	payment.Status = model.PaymentStatusRefunded
+	payment.UpdatedAt = time.Now()
 
-	// 清除快取
-	s.clearPaymentCache(ctx, payment.UserID)
-	s.redis.Del(ctx, fmt.Sprintf("payment:%s", payment.ID))
+	if err := s.repo.Update(ctx, payment); err != nil {
+		return fmt.Errorf("failed to update payment: %w", err)
+	}
 
 	return nil
 }
@@ -291,24 +259,23 @@ func (s *paymentService) CancelPayment(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to update payment: %w", err)
 	}
 
-	// 清除快取
-	s.clearPaymentCache(ctx, payment.UserID)
-	s.redis.Del(ctx, fmt.Sprintf("payment:%s", id))
-
 	return nil
 }
 
-// processPaymentGateway 處理支付網關請求（模擬）
+// processPaymentGateway 模擬處理支付網關
 func (s *paymentService) processPaymentGateway(payment *model.Payment) *model.PaymentGatewayResponse {
-	// 這裡應該實現實際的支付網關邏輯
-	// 目前僅作為示例，模擬成功響應
+	// 模擬支付處理
+	success := true
+	if payment.Amount > 10000 {
+		success = false
+		return &model.PaymentGatewayResponse{
+			Success:      false,
+			ErrorMessage: "amount exceeds limit",
+		}
+	}
+
 	return &model.PaymentGatewayResponse{
-		Success:       true,
+		Success:       success,
 		TransactionID: uuid.New().String(),
 	}
-}
-
-// clearPaymentCache 清除支付相關快取
-func (s *paymentService) clearPaymentCache(ctx context.Context, userID string) {
-	s.redis.Del(ctx, fmt.Sprintf("user:%s:payments", userID))
 }
