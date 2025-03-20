@@ -1,5 +1,5 @@
 # 構建階段
-FROM golang:1.21-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 # 設置工作目錄
 WORKDIR /app
