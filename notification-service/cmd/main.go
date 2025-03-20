@@ -12,23 +12,28 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/kevinsuu/OrderManagerSystem/notification-service/internal/config"
 	"github.com/kevinsuu/OrderManagerSystem/notification-service/internal/handler"
+	"github.com/kevinsuu/OrderManagerSystem/notification-service/internal/infrastructure/firebase"
+	"github.com/kevinsuu/OrderManagerSystem/notification-service/internal/middleware"
 	"github.com/kevinsuu/OrderManagerSystem/notification-service/internal/repository"
 	"github.com/kevinsuu/OrderManagerSystem/notification-service/internal/service"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 )
 
 func main() {
 	// 加載配置
 	cfg := config.LoadConfig()
 
-	// 初始化資料庫連接
-	db := repository.NewPostgresDB(cfg.Database)
-	// 初始化 Redis
-	rdb := repository.NewRedisRepository(cfg.Redis)
+	// 初始化日誌
+	log.SetFlags(log.LstdFlags | log.Lshortfile | log.Lmicroseconds)
+
+	// 初始化 Firebase
+	ctx := context.Background()
+	fb, err := firebase.InitFirebase(ctx, cfg.Firebase.CredentialsFile, cfg.Firebase.ProjectID)
+	if err != nil {
+		log.Fatalf("Failed to initialize Firebase: %v", err)
+	}
 
 	// 初始化存儲層
-	notificationRepo := repository.NewNotificationRepository(db, rdb)
+	notificationRepo := repository.NewNotificationRepository(fb.Database)
 
 	// 初始化服務層
 	notificationService := service.NewNotificationService(notificationRepo)
@@ -37,7 +42,7 @@ func main() {
 	notificationHandler := handler.NewHandler(notificationService)
 
 	// 設置 Gin 路由
-	router := setupRouter(notificationHandler)
+	router := setupRouter(notificationHandler, cfg.JWT.Secret)
 
 	// 創建 HTTP 服務器
 	srv := &http.Server{
@@ -73,28 +78,8 @@ func main() {
 	log.Println("Server exiting")
 }
 
-// initDB 初始化數據庫連接
-func initDB(cfg *config.Config) (*gorm.DB, error) {
-	db, err := gorm.Open(postgres.Open(cfg.Database.DSN), &gorm.Config{})
-	if err != nil {
-		return nil, err
-	}
-
-	// 設置連接池
-	sqlDB, err := db.DB()
-	if err != nil {
-		return nil, err
-	}
-
-	sqlDB.SetMaxIdleConns(cfg.Database.MaxIdleConns)
-	sqlDB.SetMaxOpenConns(cfg.Database.MaxOpenConns)
-	sqlDB.SetConnMaxLifetime(time.Duration(cfg.Database.ConnMaxLifetimeMinutes) * time.Minute)
-
-	return db, nil
-}
-
 // setupRouter 設置路由
-func setupRouter(h *handler.Handler) *gin.Engine {
+func setupRouter(h *handler.Handler, jwtSecret string) *gin.Engine {
 	router := gin.Default()
 
 	// 中間件
@@ -107,6 +92,9 @@ func setupRouter(h *handler.Handler) *gin.Engine {
 	// API 路由組
 	api := router.Group("/api/v1")
 	{
+		// 添加認證中間件
+		api.Use(middleware.AuthMiddleware(jwtSecret))
+
 		notifications := api.Group("/notifications")
 		{
 			// 通知管理

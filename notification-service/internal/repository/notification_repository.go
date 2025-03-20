@@ -2,12 +2,10 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"time"
 
+	"firebase.google.com/go/db"
 	"github.com/kevinsuu/OrderManagerSystem/notification-service/internal/model"
-	"gorm.io/gorm"
 )
 
 // NotificationRepository 通知存儲接口
@@ -26,124 +24,109 @@ type NotificationRepository interface {
 }
 
 type notificationRepository struct {
-	db    *gorm.DB
-	redis RedisRepository
+	db *db.Client
 }
 
 // NewNotificationRepository 創建通知存儲實例
-func NewNotificationRepository(db *gorm.DB, redis RedisRepository) NotificationRepository {
+func NewNotificationRepository(db *db.Client) NotificationRepository {
 	return &notificationRepository{
-		db:    db,
-		redis: redis,
+		db: db,
 	}
 }
 
 // Create 創建通知
 func (r *notificationRepository) Create(ctx context.Context, notification *model.Notification) error {
-	if err := r.db.WithContext(ctx).Create(notification).Error; err != nil {
-		return err
-	}
-
-	// 如果是待發送狀態，加入待處理隊列
-	if notification.Status == model.NotificationStatusPending {
-		return r.addToPendingQueue(ctx, notification)
-	}
-
-	return nil
+	ref := r.db.NewRef("notifications")
+	return ref.Child(notification.ID).Set(ctx, notification)
 }
 
 // GetByID 根據ID獲取通知
 func (r *notificationRepository) GetByID(ctx context.Context, id string) (*model.Notification, error) {
-	// 嘗試從快取獲取
-	notification, err := r.getFromCache(ctx, id)
-	if err == nil {
-		return notification, nil
-	}
-
-	// 從數據庫獲取
-	notification = &model.Notification{}
-	if err := r.db.WithContext(ctx).First(notification, "id = ?", id).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
+	var notification model.Notification
+	ref := r.db.NewRef("notifications").Child(id)
+	if err := ref.Get(ctx, &notification); err != nil {
 		return nil, err
 	}
-
-	// 設置快取
-	r.setCache(ctx, notification)
-
-	return notification, nil
+	if notification.ID == "" {
+		return nil, nil
+	}
+	return &notification, nil
 }
 
 // Update 更新通知
 func (r *notificationRepository) Update(ctx context.Context, notification *model.Notification) error {
-	if err := r.db.WithContext(ctx).Save(notification).Error; err != nil {
-		return err
-	}
-
-	// 更新快取
-	r.setCache(ctx, notification)
-
-	return nil
+	ref := r.db.NewRef("notifications").Child(notification.ID)
+	notification.UpdatedAt = time.Now()
+	return ref.Set(ctx, notification)
 }
 
 // GetByUserID 獲取用戶的通知
 func (r *notificationRepository) GetByUserID(ctx context.Context, userID string, page, limit int) ([]model.Notification, int64, error) {
-	var notifications []model.Notification
-	var total int64
-
-	offset := (page - 1) * limit
-
-	if err := r.db.WithContext(ctx).Model(&model.Notification{}).
-		Where("user_id = ?", userID).
-		Count(&total).Error; err != nil {
+	var result map[string]model.Notification
+	ref := r.db.NewRef("notifications")
+	if err := ref.OrderByChild("userId").EqualTo(userID).Get(ctx, &result); err != nil {
 		return nil, 0, err
 	}
 
-	if err := r.db.WithContext(ctx).
-		Where("user_id = ?", userID).
-		Order("created_at DESC").
-		Offset(offset).
-		Limit(limit).
-		Find(&notifications).Error; err != nil {
-		return nil, 0, err
+	total := int64(len(result))
+	start := (page - 1) * limit
+	end := start + limit
+	if start >= int(total) {
+		return []model.Notification{}, total, nil
+	}
+	if end > int(total) {
+		end = int(total)
 	}
 
-	return notifications, total, nil
+	notifications := make([]model.Notification, 0, len(result))
+	for _, notification := range result {
+		notifications = append(notifications, notification)
+	}
+
+	return notifications[start:end], total, nil
 }
 
 // List 獲取通知列表
 func (r *notificationRepository) List(ctx context.Context, page, limit int) ([]model.Notification, int64, error) {
-	var notifications []model.Notification
-	var total int64
-
-	offset := (page - 1) * limit
-
-	if err := r.db.WithContext(ctx).Model(&model.Notification{}).Count(&total).Error; err != nil {
+	var result map[string]model.Notification
+	ref := r.db.NewRef("notifications")
+	if err := ref.Get(ctx, &result); err != nil {
 		return nil, 0, err
 	}
 
-	if err := r.db.WithContext(ctx).
-		Order("created_at DESC").
-		Offset(offset).
-		Limit(limit).
-		Find(&notifications).Error; err != nil {
-		return nil, 0, err
+	total := int64(len(result))
+	start := (page - 1) * limit
+	end := start + limit
+	if start >= int(total) {
+		return []model.Notification{}, total, nil
+	}
+	if end > int(total) {
+		end = int(total)
 	}
 
-	return notifications, total, nil
+	notifications := make([]model.Notification, 0, len(result))
+	for _, notification := range result {
+		notifications = append(notifications, notification)
+	}
+
+	return notifications[start:end], total, nil
 }
 
 // GetPendingNotifications 獲取待處理的通知
 func (r *notificationRepository) GetPendingNotifications(ctx context.Context, limit int) ([]model.Notification, error) {
-	var notifications []model.Notification
-
-	if err := r.db.WithContext(ctx).
-		Where("status = ?", model.NotificationStatusPending).
-		Order("priority DESC, created_at ASC").
-		Limit(limit).
-		Find(&notifications).Error; err != nil {
+	var result map[string]model.Notification
+	ref := r.db.NewRef("notifications")
+	if err := ref.OrderByChild("status").EqualTo(string(model.NotificationStatusPending)).Get(ctx, &result); err != nil {
 		return nil, err
+	}
+
+	notifications := make([]model.Notification, 0, len(result))
+	for _, notification := range result {
+		notifications = append(notifications, notification)
+	}
+
+	if len(notifications) > limit {
+		notifications = notifications[:limit]
 	}
 
 	return notifications, nil
@@ -151,94 +134,65 @@ func (r *notificationRepository) GetPendingNotifications(ctx context.Context, li
 
 // CreateTemplate 創建通知模板
 func (r *notificationRepository) CreateTemplate(ctx context.Context, template *model.NotificationTemplate) error {
-	return r.db.WithContext(ctx).Create(template).Error
+	ref := r.db.NewRef("templates")
+	return ref.Child(template.ID).Set(ctx, template)
 }
 
 // GetTemplateByID 根據ID獲取模板
 func (r *notificationRepository) GetTemplateByID(ctx context.Context, id string) (*model.NotificationTemplate, error) {
 	var template model.NotificationTemplate
-	if err := r.db.WithContext(ctx).First(&template, "id = ?", id).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
+	ref := r.db.NewRef("templates").Child(id)
+	if err := ref.Get(ctx, &template); err != nil {
 		return nil, err
+	}
+	if template.ID == "" {
+		return nil, nil
 	}
 	return &template, nil
 }
 
 // GetTemplateByName 根據名稱獲取模板
 func (r *notificationRepository) GetTemplateByName(ctx context.Context, name string) (*model.NotificationTemplate, error) {
-	var template model.NotificationTemplate
-	if err := r.db.WithContext(ctx).First(&template, "name = ?", name).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
+	var result map[string]model.NotificationTemplate
+	ref := r.db.NewRef("templates")
+	if err := ref.OrderByChild("name").EqualTo(name).Get(ctx, &result); err != nil {
 		return nil, err
 	}
-	return &template, nil
+	for _, template := range result {
+		return &template, nil
+	}
+	return nil, nil
 }
 
 // UpdateTemplate 更新模板
 func (r *notificationRepository) UpdateTemplate(ctx context.Context, template *model.NotificationTemplate) error {
-	return r.db.WithContext(ctx).Save(template).Error
+	ref := r.db.NewRef("templates").Child(template.ID)
+	template.UpdatedAt = time.Now()
+	return ref.Set(ctx, template)
 }
 
 // ListTemplates 獲取模板列表
 func (r *notificationRepository) ListTemplates(ctx context.Context, page, limit int) ([]model.NotificationTemplate, int64, error) {
-	var templates []model.NotificationTemplate
-	var total int64
-
-	offset := (page - 1) * limit
-
-	if err := r.db.WithContext(ctx).Model(&model.NotificationTemplate{}).Count(&total).Error; err != nil {
+	var result map[string]model.NotificationTemplate
+	ref := r.db.NewRef("templates")
+	if err := ref.Get(ctx, &result); err != nil {
 		return nil, 0, err
 	}
 
-	if err := r.db.WithContext(ctx).
-		Order("created_at DESC").
-		Offset(offset).
-		Limit(limit).
-		Find(&templates).Error; err != nil {
-		return nil, 0, err
+	total := int64(len(result))
+	start := (page - 1) * limit
+	end := start + limit
+	if start >= int(total) {
+		return []model.NotificationTemplate{}, total, nil
+	}
+	if end > int(total) {
+		end = int(total)
 	}
 
-	return templates, total, nil
-}
-
-// 輔助方法
-
-// addToPendingQueue 將通知加入待處理隊列
-func (r *notificationRepository) addToPendingQueue(ctx context.Context, notification *model.Notification) error {
-	key := "pending_notifications"
-	score := float64(time.Now().Unix())
-	member := notification.ID
-
-	return r.redis.ZAdd(ctx, key, member, score)
-}
-
-// getFromCache 從快取獲取通知
-func (r *notificationRepository) getFromCache(ctx context.Context, id string) (*model.Notification, error) {
-	key := "notification:" + id
-	data, err := r.redis.Get(ctx, key)
-	if err != nil {
-		return nil, err
+	templates := make([]model.NotificationTemplate, 0, len(result))
+	for _, template := range result {
+		templates = append(templates, template)
 	}
 
-	var notification model.Notification
-	if err := json.Unmarshal([]byte(data), &notification); err != nil {
-		return nil, err
-	}
-
-	return &notification, nil
-}
-
-// setCache 設置通知快取
-func (r *notificationRepository) setCache(ctx context.Context, notification *model.Notification) error {
-	key := "notification:" + notification.ID
-	data, err := json.Marshal(notification)
-	if err != nil {
-		return err
-	}
-
-	return r.redis.Set(ctx, key, data, 1*time.Hour)
+	return templates[start:end], total, nil
 }
