@@ -1258,7 +1258,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"templateId\": \"{{template_id}}\",\n    \"userId\": \"{{user_id}}\",\n    \"data\": {\n        \"orderNumber\": \"ORD-123\",\n        \"amount\": \"199.98\"\n    }\n}",
+							"raw": "{\n    \"templateId\": \"{{template_id}}\",\n    \"userId\": \"{{user_id}}\",\"priority\": \"HIGH\",\n    \"variables\": {\n        \"orderNumber\": \"ORD-123\",\n        \"amount\": \"199.98\"\n    }\n}",
 							"options": {
 								"raw": {
 									"language": "json"
