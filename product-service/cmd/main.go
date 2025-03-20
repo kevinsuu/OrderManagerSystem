@@ -11,6 +11,7 @@ import (
 	"github.com/kevinsuu/OrderManagerSystem/product-service/internal/config"
 	"github.com/kevinsuu/OrderManagerSystem/product-service/internal/handler"
 	"github.com/kevinsuu/OrderManagerSystem/product-service/internal/infrastructure/firebase"
+	"github.com/kevinsuu/OrderManagerSystem/product-service/internal/middleware"
 	"github.com/kevinsuu/OrderManagerSystem/product-service/internal/repository"
 	"github.com/kevinsuu/OrderManagerSystem/product-service/internal/service"
 )
@@ -46,33 +47,50 @@ func main() {
 
 	// 路由組
 	api := router.Group("/api/v1")
+
+	// 公開路由（不需要驗證）
 	{
-		// 產品相關路由
+		// 健康檢查
+		api.GET("/health", handler.HealthCheck)
+
+		// 產品查詢相關路由
 		products := api.Group("/products")
 		{
-			products.POST("/", handler.CreateProduct)
 			products.GET("/", handler.ListProducts)
 			products.GET("/search", handler.SearchProducts)
 			products.GET("/:id", handler.GetProduct)
-			products.PUT("/:id", handler.UpdateProduct)
-			products.PUT("/:id/stock", handler.UpdateStock)
-			products.DELETE("/:id", handler.DeleteProduct)
 			products.GET("/category/:id", handler.GetProductsByCategory)
 		}
 
-		// 分類相關路由
+		// 分類查詢相關路由
 		categories := api.Group("/categories")
 		{
-			categories.POST("/", handler.CreateCategory)
 			categories.GET("/", handler.ListCategories)
 			categories.GET("/:id", handler.GetCategory)
-			categories.PUT("/:id", handler.UpdateCategory)
-			categories.DELETE("/:id", handler.DeleteCategory)
 			categories.GET("/:id/products", handler.GetProductsByCategory)
 		}
+	}
 
-		// 健康檢查
-		api.GET("/health", handler.HealthCheck)
+	// 需要驗證的路由
+	protected := api.Group("")
+	protected.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
+	{
+		// 產品管理路由
+		products := protected.Group("/products")
+		{
+			products.POST("/", handler.CreateProduct)
+			products.PUT("/:id", handler.UpdateProduct)
+			products.PUT("/:id/stock", handler.UpdateStock)
+			products.DELETE("/:id", handler.DeleteProduct)
+		}
+
+		// 分類管理路由
+		categories := protected.Group("/categories")
+		{
+			categories.POST("/", handler.CreateCategory)
+			categories.PUT("/:id", handler.UpdateCategory)
+			categories.DELETE("/:id", handler.DeleteCategory)
+		}
 	}
 
 	// 啟動服務器

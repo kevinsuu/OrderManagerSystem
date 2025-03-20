@@ -9,6 +9,7 @@ import (
 type Config struct {
 	Server   ServerConfig
 	Firebase FirebaseConfig
+	JWT      JWTConfig
 }
 
 // ServerConfig 服務器配置
@@ -20,6 +21,12 @@ type ServerConfig struct {
 type FirebaseConfig struct {
 	CredentialsFile string
 	ProjectID       string
+	DatabaseURL     string
+}
+
+// JWTConfig JWT配置
+type JWTConfig struct {
+	Secret string
 }
 
 // LoadConfig 加載配置
@@ -31,6 +38,7 @@ func LoadConfig() *Config {
 		Firebase: FirebaseConfig{
 			CredentialsFile: os.Getenv("FIREBASE_CREDENTIALS"),
 			ProjectID:       os.Getenv("FIREBASE_PROJECT_ID"),
+			DatabaseURL:     os.Getenv("FIREBASE_DATABASE_URL"),
 		},
 	}
 }
