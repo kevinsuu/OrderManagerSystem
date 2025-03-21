@@ -1,20 +1,21 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import theme from './theme';
 
 // Layouts
-import MainLayout from './layouts/MainLayout';
-import StoreLayout from './layouts/StoreLayout';
+import StoreLayout from './layouts/Store/StoreLayout';
+import AdminLayout from './layouts/Admin/AdminLayout';
 
 // Store Pages
-import StorePage from './pages/Store/Home';
+import Home from './pages/Store/Home';
 import Login from './pages/Store/Login';
+import Profile from './pages/Store/Profile';
 
 // Admin Pages
 import AdminLogin from './pages/Admin/Login';
-import Dashboard from './pages/Admin/Dashboard';
+import AdminDashboard from './pages/Admin/Dashboard';
 
 // 路由保護組件
 const ProtectedRoute = ({ children }) => {
@@ -44,49 +45,52 @@ function App() {
     return (
         <ThemeProvider theme={theme}>
             <CssBaseline />
-            <Routes>
-                {/* 商店前台路由 */}
-                <Route path="/" element={<StoreLayout />}>
-                    <Route index element={<StorePage />} />
-                    <Route path="store" element={<StorePage />} />
-                    <Route path="login" element={<Login />} />
+            <Router>
+                <Routes>
+                    {/* 商店前台路由 */}
+                    <Route path="/" element={<StoreLayout />}>
+                        <Route index element={<Home />} />
+                        <Route path="login" element={<Login />} />
+                        <Route
+                            path="profile"
+                            element={
+                                <UserProtectedRoute>
+                                    <Profile />
+                                </UserProtectedRoute>
+                            }
+                        />
+                        <Route path="store" element={<Home />} />
+                        <Route path="store/orders" element={
+                            <UserProtectedRoute>
+                                <div>訂單記錄頁面</div>
+                            </UserProtectedRoute>
+                        } />
+                        <Route path="store/wishlist" element={
+                            <UserProtectedRoute>
+                                <div>收藏清單頁面</div>
+                            </UserProtectedRoute>
+                        } />
+                        <Route path="store/cart" element={
+                            <UserProtectedRoute>
+                                <div>購物車頁面</div>
+                            </UserProtectedRoute>
+                        } />
+                    </Route>
 
-                    {/* 需要登入的路由 */}
-                    <Route path="store/profile" element={
-                        <UserProtectedRoute>
-                            <div>個人資料頁面</div>
-                        </UserProtectedRoute>
-                    } />
-                    <Route path="store/orders" element={
-                        <UserProtectedRoute>
-                            <div>訂單記錄頁面</div>
-                        </UserProtectedRoute>
-                    } />
-                    <Route path="store/wishlist" element={
-                        <UserProtectedRoute>
-                            <div>收藏清單頁面</div>
-                        </UserProtectedRoute>
-                    } />
-                    <Route path="store/cart" element={
-                        <UserProtectedRoute>
-                            <div>購物車頁面</div>
-                        </UserProtectedRoute>
-                    } />
-                </Route>
-
-                {/* 管理後台路由 */}
-                <Route path="/admin/login" element={<AdminLogin />} />
-                <Route
-                    path="/admin/*"
-                    element={
-                        <ProtectedRoute>
-                            <MainLayout />
-                        </ProtectedRoute>
-                    }
-                >
-                    <Route path="dashboard" element={<Dashboard />} />
-                </Route>
-            </Routes>
+                    {/* 管理後台路由 */}
+                    <Route path="/admin" element={<AdminLayout />}>
+                        <Route path="login" element={<AdminLogin />} />
+                        <Route
+                            path="dashboard"
+                            element={
+                                <ProtectedRoute>
+                                    <AdminDashboard />
+                                </ProtectedRoute>
+                            }
+                        />
+                    </Route>
+                </Routes>
+            </Router>
         </ThemeProvider>
     );
 }

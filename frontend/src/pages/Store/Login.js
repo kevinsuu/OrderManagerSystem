@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import {
     Box,
     Container,
@@ -13,6 +14,15 @@ import {
 import { useNavigate } from 'react-router-dom';
 
 const API_URL = process.env.REACT_APP_API_URL || 'https://ordermanagersystem-auth-service.onrender.com';
+
+// 創建一個 axios 實例
+const api = axios.create({
+    baseURL: API_URL,
+    headers: {
+        'Content-Type': 'application/json',
+        'Accept': '*/*',
+    }
+});
 
 const Login = () => {
     const navigate = useNavigate();
@@ -36,30 +46,12 @@ const Login = () => {
         setIsLoading(true);
 
         try {
-            const response = await fetch(`${API_URL}/auth/login`, {
-                method: 'POST',
-                headers: {
-                    'Accept': '*/*',
-                    'Accept-Encoding': 'gzip, deflate, br',
-                    'Connection': 'keep-alive',
-                    'Content-Type': 'application/json',
-                    'User-Agent': 'PostmanRuntime/7.43.2',
-                    'Host': new URL(API_URL).host
-                },
-                mode: 'cors',
-                body: JSON.stringify(formData)
-            });
+            const response = await api.post('/auth/login', formData);
+            const { token, user } = response.data;
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => null);
-                throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            if (data.token) {
-                localStorage.setItem('userToken', data.token);
-                localStorage.setItem('userData', JSON.stringify(data.user));
+            if (token) {
+                localStorage.setItem('userToken', token);
+                localStorage.setItem('userData', JSON.stringify(user));
                 const redirectUrl = sessionStorage.getItem('redirectUrl');
                 sessionStorage.removeItem('redirectUrl');
                 navigate(redirectUrl || '/');
@@ -69,38 +61,15 @@ const Login = () => {
         } catch (err) {
             console.error('Login error:', err);
             setError(
-                err.message === 'Failed to fetch'
+                err.response?.data?.message ||
+                    err.message === 'Network Error'
                     ? '無法連接到伺服器，請檢查您的網路連接'
-                    : err.message || '登入失敗，請檢查您的帳號密碼是否正確'
+                    : '登入失敗，請檢查您的帳號密碼是否正確'
             );
         } finally {
             setIsLoading(false);
         }
     };
-
-    // 測試 API 連接
-    const testConnection = async () => {
-        try {
-            const response = await fetch(`${API_URL}/auth/login`, {
-                method: 'OPTIONS',
-                headers: {
-                    'Accept': '*/*',
-                    'Accept-Encoding': 'gzip, deflate, br',
-                    'Connection': 'keep-alive',
-                    'User-Agent': 'PostmanRuntime/7.43.2',
-                    'Host': new URL(API_URL).host
-                }
-            });
-            console.log('API connection test response:', response);
-        } catch (err) {
-            console.error('API connection test error:', err);
-        }
-    };
-
-    // 在組件載入時測試連接
-    React.useEffect(() => {
-        testConnection();
-    }, []);
 
     return (
         <Container component="main" maxWidth="xs">
@@ -199,4 +168,4 @@ const Login = () => {
     );
 };
 
-export default Login; 
+export default Login;
