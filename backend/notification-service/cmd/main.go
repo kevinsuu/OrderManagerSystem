@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/kevinsuu/OrderManagerSystem/notification-service/internal/config"
 	"github.com/kevinsuu/OrderManagerSystem/notification-service/internal/handler"
@@ -85,6 +86,16 @@ func setupRouter(h *handler.Handler, jwtSecret string) *gin.Engine {
 	// 中間件
 	router.Use(gin.Recovery())
 	router.Use(gin.Logger())
+
+	// CORS 中間件配置
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: false,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	// 健康檢查
 	router.GET("/health", h.HealthCheck)
