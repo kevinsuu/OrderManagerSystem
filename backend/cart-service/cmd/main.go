@@ -8,7 +8,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/client"
 	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/config"
@@ -72,6 +74,16 @@ func main() {
 	// 中間件
 	router.Use(gin.Recovery())
 	router.Use(gin.Logger())
+
+	// CORS 中間件配置
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: false,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	// 健康檢查
 	router.GET("/health", func(c *gin.Context) {
