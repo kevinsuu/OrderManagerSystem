@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gin-contrib/cors"
+	// "github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/kevinsuu/OrderManagerSystem/auth-service/internal/config"
 	"github.com/kevinsuu/OrderManagerSystem/auth-service/internal/handler"
@@ -40,24 +40,6 @@ func main() {
 
 	// 使用 gin.New() 而不是 gin.Default()
 	router := gin.New()
-
-	// 首先配置 CORS，必須在所有路由之前
-	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"*"}  // 允許所有來源
-	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"}
-	config.AllowHeaders = []string{
-		"Authorization",
-		"Content-Type",
-		"Origin",
-		"Accept",
-		"X-Requested-With",
-	}
-	config.ExposeHeaders = []string{"Content-Length"}
-	// 注意：當 AllowOrigins 為 "*" 時，不能設置 AllowCredentials 為 true
-	config.AllowCredentials = false
-	config.MaxAge = 12 * time.Hour
-
-	router.Use(cors.New(config))
 
 	// Logger 和 Recovery 中間件
 	router.Use(gin.Logger())
