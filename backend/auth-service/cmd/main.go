@@ -43,7 +43,12 @@ func main() {
 
 	// 首先配置 CORS，必須在所有路由之前
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"http://localhost:3000", "http://localhost:3001"}
+	config.AllowOrigins = []string{
+		"http://localhost:3000",
+		"http://localhost:3001",
+		"https://ordermanagersystem-auth-service.onrender.com",
+		// 添加您的前端部署域名
+	}
 	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
 	config.AllowHeaders = []string{
 		"Authorization",
@@ -61,6 +66,17 @@ func main() {
 	// Logger 和 Recovery 中間件
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
+
+	// 添加錯誤處理中間件
+	router.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", c.Request.Header.Get("Origin"))
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+	})
 
 	// API 路由組
 	api := router.Group("/api/v1")
