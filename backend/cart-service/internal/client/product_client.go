@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,6 +20,7 @@ const (
 
 type ProductClient interface {
 	GetProduct(ctx context.Context, productID string) (*ProductInfo, error)
+	GetProductImageAsBase64(ctx context.Context, imageURL string) (string, error)
 }
 
 type ProductImage struct {
@@ -127,4 +129,38 @@ func (c *productClient) GetProduct(ctx context.Context, productID string) (*Prod
 	default:
 		return nil, fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body))
 	}
+}
+
+// 新增一個方法來獲取產品圖片並轉換為base64
+func (c *productClient) GetProductImageAsBase64(ctx context.Context, imageURL string) (string, error) {
+	if imageURL == "" {
+		return "", nil
+	}
+
+	// 使用HTTP GET請求獲取圖片
+	req, err := http.NewRequestWithContext(ctx, "GET", imageURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("create image request failed: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("image request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to get image, status: %d", resp.StatusCode)
+	}
+
+	// 讀取圖片數據
+	imgData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read image data failed: %w", err)
+	}
+
+	// 轉換為base64
+	base64Data := "data:" + resp.Header.Get("Content-Type") + ";base64," + base64.StdEncoding.EncodeToString(imgData)
+
+	return base64Data, nil
 }
