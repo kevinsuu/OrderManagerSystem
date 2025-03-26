@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/client"
@@ -16,6 +17,11 @@ var (
 	ErrProductNotFound = errors.New("product not found")
 	ErrInvalidStock    = errors.New("invalid stock quantity")
 )
+
+// Add a Config type
+type CartServiceConfig struct {
+	ProductServiceBaseURL string
+}
 
 type CartService interface {
 	GetCart(ctx context.Context, userID string) (*model.CartResponse, error)
@@ -31,32 +37,36 @@ type cartService struct {
 	cartRepo      repository.CartRepository
 	productClient client.ProductClient
 	orderClient   client.OrderClient
+	config        *CartServiceConfig // Add config field
 }
 
-func NewCartService(cartRepo repository.CartRepository, productClient client.ProductClient, orderClient client.OrderClient) CartService {
+// Update the constructor
+func NewCartService(cartRepo repository.CartRepository, productClient client.ProductClient, orderClient client.OrderClient, config *CartServiceConfig) CartService {
+	// If config is nil, provide default values
+	if config == nil {
+		config = &CartServiceConfig{
+			ProductServiceBaseURL: "https://ordermanagersystem-product-service.onrender.com",
+		}
+	}
+
 	return &cartService{
 		cartRepo:      cartRepo,
 		productClient: productClient,
 		orderClient:   orderClient,
+		config:        config,
 	}
 }
 
 func (s *cartService) GetCart(ctx context.Context, userID string) (*model.CartResponse, error) {
-	fmt.Printf("GetCart called for userID: %s", userID)
 
 	cart, err := s.cartRepo.GetCart(ctx, userID)
 	if err != nil {
-		fmt.Printf("Error getting cart from repository: %v", err)
 		return nil, err
 	}
-
-	fmt.Printf("Cart retrieved from repository: %+v", cart)
 
 	response := &model.CartResponse{
 		Items: cart.Items,
 	}
-
-	log.Printf("Cart items count: %d", len(cart.Items))
 
 	// 計算已選商品的總數和總金額
 	for _, item := range cart.Items {
@@ -66,9 +76,15 @@ func (s *cartService) GetCart(ctx context.Context, userID string) (*model.CartRe
 		}
 	}
 
-	log.Printf("Cart response prepared: %+v", response)
-
 	return response, nil
+}
+
+// 添加一個輔助函數來截斷字符串
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }
 
 func (s *cartService) AddItem(ctx context.Context, userID string, req *model.AddToCartRequest) error {
@@ -124,20 +140,37 @@ func (s *cartService) AddItem(ctx context.Context, userID string, req *model.Add
 			existingQuantity, req.Quantity, productInfo.Stock)
 	}
 
-	// 獲取商品圖片
-	imageURL := ""
+	// 獲取圖片 base64
+	var imageBase64 string
 	if len(productInfo.Images) > 0 {
-		imageURL = productInfo.Images[0].URL
-		log.Printf("Using image URL: %s", imageURL)
+
+		if productInfo.Images[0].Data != "" {
+			imageBase64 = productInfo.Images[0].Data
+			fmt.Printf("Using existing base64 image data with length: %d", len(imageBase64))
+		} else {
+			// 如果沒有 data 字段，則從 URL 獲取
+			imageURL := productInfo.Images[0].URL
+			if !strings.HasPrefix(imageURL, "http") {
+				imageURL = fmt.Sprintf("%s%s", s.config.ProductServiceBaseURL, imageURL)
+				log.Printf("Converted to absolute URL: %s", imageURL)
+			}
+			imageBase64, err = s.productClient.GetProductImageAsBase64(ctx, imageURL)
+			if err != nil {
+				log.Printf("Warning: Failed to get image as base64: %v", err)
+				// 繼續執行，不因圖片獲取失敗而中斷流程
+			} else {
+				log.Printf("Successfully got base64 image with length: %d", len(imageBase64))
+			}
+		}
 	} else {
-		log.Printf("No images found for product %s", req.ProductID)
+		fmt.Printf("Product %s has no images", req.ProductID)
 	}
 
 	// 創建購物車項目
 	item := model.CartItem{
 		ProductID:  req.ProductID,
 		Name:       productInfo.Name,
-		Image:      imageURL,
+		Image:      imageBase64,
 		Price:      productInfo.Price,
 		Quantity:   req.Quantity,
 		Selected:   true,

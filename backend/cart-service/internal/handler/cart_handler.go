@@ -24,12 +24,22 @@ func NewHandler(cartService service.CartService) *Handler {
 
 // GetCart 獲取購物車
 func (h *Handler) GetCart(c *gin.Context) {
-	userID := c.GetString("userID") // 從 JWT token 中獲取
+	userID := c.GetString("userID")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
 
 	cart, err := h.cartService.GetCart(c.Request.Context(), userID)
 	if err != nil {
+		log.Printf("Error getting cart: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	// 檢查每個項目的圖片數據
+	for i, item := range cart.Items {
+		log.Printf("Item %d (%s): Image length = %d", i, item.ProductID, len(item.Image))
 	}
 
 	c.JSON(http.StatusOK, cart)

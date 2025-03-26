@@ -18,10 +18,10 @@ type Cart struct {
 // CartItem 購物車項目模型
 type CartItem struct {
 	ID         uint   `gorm:"primaryKey"`
-	UserID     string // 直接使用 UserID 來替代 CartUserID
+	UserID     string // 直接使用 UserID
 	ProductID  string
 	Name       string  // 商品名稱
-	Image      string  // 商品圖片 (base64 格式)
+	Image      string  `gorm:"type:text"` // 確保這是 TEXT 類型，可以存儲大量文本
 	Price      float64 // 商品價格
 	StockCount int     // 庫存數量
 	Quantity   int

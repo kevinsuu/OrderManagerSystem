@@ -27,6 +27,7 @@ type ProductImage struct {
 	ID        string `json:"id"`
 	ProductID string `json:"productId"`
 	URL       string `json:"url"`
+	Data      string `json:"data"` // 添加 Data 字段存儲 base64 圖片數據
 	Sort      int    `json:"sort"`
 	CreatedAt string `json:"createdAt"`
 	UpdatedAt string `json:"updatedAt"`
@@ -131,36 +132,55 @@ func (c *productClient) GetProduct(ctx context.Context, productID string) (*Prod
 	}
 }
 
-// 新增一個方法來獲取產品圖片並轉換為base64
+// 添加一個函數來獲取並轉換圖片為 base64
 func (c *productClient) GetProductImageAsBase64(ctx context.Context, imageURL string) (string, error) {
 	if imageURL == "" {
+		log.Printf("Empty image URL provided")
 		return "", nil
 	}
 
-	// 使用HTTP GET請求獲取圖片
+	log.Printf("Fetching image from URL: %s", imageURL)
+
 	req, err := http.NewRequestWithContext(ctx, "GET", imageURL, nil)
 	if err != nil {
+		log.Printf("Failed to create request for image: %v", err)
 		return "", fmt.Errorf("create image request failed: %w", err)
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		log.Printf("Failed to fetch image: %v", err)
 		return "", fmt.Errorf("image request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
+	log.Printf("Image fetch response status: %d", resp.StatusCode)
+
 	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		log.Printf("Image fetch failed with status %d: %s", resp.StatusCode, string(respBody))
 		return "", fmt.Errorf("failed to get image, status: %d", resp.StatusCode)
 	}
 
 	// 讀取圖片數據
 	imgData, err := io.ReadAll(resp.Body)
 	if err != nil {
+		log.Printf("Failed to read image data: %v", err)
 		return "", fmt.Errorf("read image data failed: %w", err)
 	}
 
-	// 轉換為base64
-	base64Data := "data:" + resp.Header.Get("Content-Type") + ";base64," + base64.StdEncoding.EncodeToString(imgData)
+	log.Printf("Successfully read image data, size: %d bytes", len(imgData))
 
+	// 確定 MIME 類型
+	contentType := resp.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = http.DetectContentType(imgData)
+		log.Printf("Detected content type: %s", contentType)
+	}
+
+	// 轉換為 base64
+	base64Data := "data:" + contentType + ";base64," + base64.StdEncoding.EncodeToString(imgData)
+
+	log.Printf("Successfully converted image to base64 (length: %d)", len(base64Data))
 	return base64Data, nil
 }

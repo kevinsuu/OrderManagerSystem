@@ -63,7 +63,9 @@ func main() {
 	orderClient := client.NewOrderClient(cfg.OrderService.BaseURL)
 
 	// 初始化服務層
-	cartService := service.NewCartService(cartRepo, productClient, orderClient)
+	cartService := service.NewCartService(cartRepo, productClient, orderClient, &service.CartServiceConfig{
+		ProductServiceBaseURL: cfg.ProductService.BaseURL,
+	})
 
 	// 初始化 HTTP 處理器
 	handler := handler.NewHandler(cartService)
