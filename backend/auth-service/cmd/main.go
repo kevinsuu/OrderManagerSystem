@@ -41,27 +41,26 @@ func main() {
 	// 使用 gin.New() 而不是 gin.Default()
 	router := gin.New()
 
-	// 添加 Recovery 中間件
+	// 首先配置 CORS，必須在所有路由之前
+	config := cors.DefaultConfig()
+	config.AllowOrigins = []string{"http://localhost:3000", "http://localhost:3001"}
+	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+	config.AllowHeaders = []string{
+		"Authorization",
+		"Content-Type",
+		"Origin",
+		"Accept",
+		"X-Requested-With",
+	}
+	config.ExposeHeaders = []string{"Content-Length"}
+	config.AllowCredentials = true
+	config.MaxAge = 12 * time.Hour
+
+	router.Use(cors.New(config))
+
+	// Logger 和 Recovery 中間件
+	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
-
-	// CORS 中間件配置 - 必須在所有路由之前
-	router.Use(cors.New(cors.Config{
-		AllowOrigins: []string{"http://localhost:3000", "http://localhost:3001"},
-		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders: []string{
-			"Origin",
-			"Content-Type",
-			"Content-Length",
-			"Accept",
-			"Authorization",
-			"X-Requested-With",
-		},
-		ExposeHeaders:    []string{"Content-Length", "Authorization"},
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
-	}))
-
-	// 健康檢查
 
 	// API 路由組
 	api := router.Group("/api/v1")
@@ -84,13 +83,10 @@ func main() {
 			secured.PUT("/preferences", handler.UpdatePreference)
 
 			// 地址管理
-			addresses := secured.Group("/addresses")
-			{
-				addresses.GET("/", handler.GetAddresses)
-				addresses.POST("/", handler.CreateAddress)
-				addresses.PUT("/:id", handler.UpdateAddress)
-				addresses.DELETE("/:id", handler.DeleteAddress)
-			}
+			secured.GET("/addresses", handler.GetAddresses)
+			secured.POST("/addresses", handler.CreateAddress)
+			secured.PUT("/addresses/:id", handler.UpdateAddress)
+			secured.DELETE("/addresses/:id", handler.DeleteAddress)
 		}
 	}
 
