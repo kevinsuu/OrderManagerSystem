@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/kevinsuu/OrderManagerSystem/static/css/main.e6c13ad2.css",
-    "main.js": "/kevinsuu/OrderManagerSystem/static/js/main.64a233ea.js",
-    "index.html": "/kevinsuu/OrderManagerSystem/index.html",
-    "main.e6c13ad2.css.map": "/kevinsuu/OrderManagerSystem/static/css/main.e6c13ad2.css.map",
-    "main.64a233ea.js.map": "/kevinsuu/OrderManagerSystem/static/js/main.64a233ea.js.map"
+    "main.css": "/OrderManagerSystem/static/css/main.e6c13ad2.css",
+    "main.js": "/OrderManagerSystem/static/js/main.ae624d8c.js",
+    "index.html": "/OrderManagerSystem/index.html",
+    "main.e6c13ad2.css.map": "/OrderManagerSystem/static/css/main.e6c13ad2.css.map",
+    "main.ae624d8c.js.map": "/OrderManagerSystem/static/js/main.ae624d8c.js.map"
   },
   "entrypoints": [
     "static/css/main.e6c13ad2.css",
-    "static/js/main.64a233ea.js"
+    "static/js/main.ae624d8c.js"
   ]
 }
