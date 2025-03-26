@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     Container,
     Paper,
@@ -29,7 +29,6 @@ import {
     MenuItem,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import SaveIcon from '@mui/icons-material/Save';
 import AddIcon from '@mui/icons-material/Add';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -43,6 +42,7 @@ import LocationOffIcon from '@mui/icons-material/LocationOff';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import { createAuthAxios } from '../../utils/auth';
 
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'https://ordermanagersystem-auth-service.onrender.com';
 
@@ -77,44 +77,31 @@ const Profile = () => {
     const [selectedAddress, setSelectedAddress] = useState(null);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
-    useEffect(() => {
-        const userData = localStorage.getItem('userData');
-        if (!userData) {
-            navigate('/login');
-            return;
-        }
-        setUser(JSON.parse(userData));
-        fetchUserData();
-    }, [navigate]);
+    // 使用 useMemo 創建 authAxios 實例，避免每次重新渲染都創建新實例
+    const authAxios = useMemo(() => createAuthAxios(navigate), [navigate]);
 
-    const fetchUserData = async () => {
+    // 將 fetchUserData 包裝在 useCallback 中以記憶化函數
+    const fetchUserData = useCallback(async () => {
         try {
             const token = localStorage.getItem('userToken');
-            const headers = {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            };
+            console.log('當前 token:', token ? '存在' : '不存在');
 
-            // 獲取用戶偏好設定
-            const preferencesResponse = await axios.get(
-                `${AUTH_SERVICE_URL}/api/v1/user/preferences`,
-                {
-                    headers,
-                    withCredentials: true  // 如果需要發送 cookies
-                }
-            );
+            // 獲取用戶基本資料 - 使用 authAxios 替代直接的 axios
+            const userResponse = await authAxios.get(`${AUTH_SERVICE_URL}/api/v1/user/`);
+            console.log('用戶資料回應:', userResponse.data);
+            setUser(userResponse.data); // 使用 API 返回的數據更新用戶資料
+
+            // 獲取用戶偏好設定 - 使用 authAxios 替代直接的 axios
+            const preferencesResponse = await authAxios.get(`${AUTH_SERVICE_URL}/api/v1/user/preferences`);
             setPreferencesForm(preferencesResponse.data);
 
-            // 獲取用戶地址
-            const addressesResponse = await axios.get(
-                `${AUTH_SERVICE_URL}/api/v1/user/addresses`,
-                {
-                    headers,
-                    withCredentials: true  // 如果需要發送 cookies
-                }
-            );
+            // 獲取用戶地址 - 使用 authAxios 替代直接的 axios
+            const addressesResponse = await authAxios.get(`${AUTH_SERVICE_URL}/api/v1/user/addresses`);
+            console.log('地址資料回應:', addressesResponse);
             setAddresses(addressesResponse.data);
+
+            // 在成功獲取用戶數據後添加這行
+            localStorage.setItem('userData', JSON.stringify(userResponse.data));
         } catch (error) {
             console.error('獲取用戶資料失敗:', error);
             // 添加更詳細的錯誤處理
@@ -123,26 +110,31 @@ const Profile = () => {
                 console.error('錯誤數據:', error.response.data);
             }
         }
-    };
+    }, [authAxios]); // 添加 authAxios 作為依賴
+
+    useEffect(() => {
+        const token = localStorage.getItem('userToken');
+        if (!token) {
+            navigate('/login');
+            return;
+        }
+
+        fetchUserData();
+    }, [navigate, fetchUserData]); // 添加 fetchUserData 作為依賴
 
     const handleLogout = () => {
         localStorage.removeItem('userToken');
+        localStorage.removeItem('refreshToken'); // 同時移除 refreshToken
         localStorage.removeItem('userData');
         navigate('/login');
     };
 
     const handlePreferencesSubmit = async () => {
         try {
-            const token = localStorage.getItem('userToken');
-            const response = await axios.put(
+            // 使用 authAxios 替代直接的 axios
+            const response = await authAxios.put(
                 `${AUTH_SERVICE_URL}/api/v1/user/preferences`,
-                preferencesForm,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
-                }
+                preferencesForm
             );
 
             if (response.data) {
@@ -206,14 +198,9 @@ const Profile = () => {
 
     const handleDeleteAddress = async () => {
         try {
-            const token = localStorage.getItem('userToken');
-            await axios.delete(
-                `${AUTH_SERVICE_URL}/api/v1/user/addresses/${selectedAddress.id}`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                    }
-                }
+            // 使用 authAxios 替代直接的 axios
+            await authAxios.delete(
+                `${AUTH_SERVICE_URL}/api/v1/user/addresses/${selectedAddress.id}`
             );
 
             await fetchUserData();
@@ -236,26 +223,18 @@ const Profile = () => {
 
     const handleAddressSubmit = async () => {
         try {
-            const token = localStorage.getItem('userToken');
-            const headers = {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            };
-
             let response;
             if (editingAddressIndex !== null) {
-                // 更新現有地址
-                response = await axios.put(
+                // 更新現有地址 - 使用 authAxios 替代直接的 axios
+                response = await authAxios.put(
                     `${AUTH_SERVICE_URL}/api/v1/user/addresses/${addresses[editingAddressIndex].id}`,
-                    addressForm,
-                    { headers }
+                    addressForm
                 );
             } else {
-                // 新增地址
-                response = await axios.post(
+                // 新增地址 - 使用 authAxios 替代直接的 axios
+                response = await authAxios.post(
                     `${AUTH_SERVICE_URL}/api/v1/user/addresses`,
-                    addressForm,
-                    { headers }
+                    addressForm
                 );
             }
 

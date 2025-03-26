@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Container,
     Paper,
@@ -23,28 +23,184 @@ import {
     LocalShipping as ShippingIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
+import debounce from 'lodash/debounce';
+import { createAuthAxios } from '../../utils/auth';
+
+const CART_SERVICE_URL = 'https://ordermanagersystem.onrender.com';
 
 const Cart = () => {
     const navigate = useNavigate();
-    const [cartItems, setCartItems] = useState([
-        {
-            id: 1,
-            name: "商品範例 1",
-            price: 1000,
-            quantity: 1,
-            image: "https://via.placeholder.com/150",
-            stock: 10
-        },
-        {
-            id: 2,
-            name: "商品範例 2",
-            price: 500,
-            quantity: 2,
-            image: "https://via.placeholder.com/150",
-            stock: 5
-        }
-    ]);
+    const [cartItems, setCartItems] = useState([]);
     const [showAlert, setShowAlert] = useState(false);
+    const [alertMessage, setAlertMessage] = useState('');
+    const [alertSeverity, setAlertSeverity] = useState('success');
+    const [pendingUpdates, setPendingUpdates] = useState({});
+
+    // 使用 useMemo 記憶化 authAxios 實例
+    const authAxios = React.useMemo(() => createAuthAxios(navigate), [navigate]);
+
+    // 成功訊息顯示
+    const showSuccessMessage = useCallback((message) => {
+        setShowAlert(true);
+        setAlertMessage(message);
+        setAlertSeverity('success');
+        setTimeout(() => setShowAlert(false), 3000);
+    }, []);
+
+    // 錯誤訊息顯示
+    const showErrorMessage = useCallback((message) => {
+        setShowAlert(true);
+        setAlertMessage(message);
+        setAlertSeverity('error');
+        setTimeout(() => setShowAlert(false), 3000);
+    }, []);
+
+    // 錯誤處理函數
+    const handleError = useCallback((error) => {
+        // 不需要在這裡處理 401，已在 axios 實例中處理
+        showErrorMessage(error.response?.data?.error || '操作失敗');
+    }, [showErrorMessage]);
+
+    // 添加一個單獨的函數用於獲取購物車數據
+    const fetchCartData = useCallback(async () => {
+        try {
+            console.log('開始獲取購物車...');
+            const response = await authAxios.get(`${CART_SERVICE_URL}/api/v1/cart/`);
+
+            const data = response.data;
+            console.log('成功獲取購物車數據:', data);
+
+            if (data.items) {
+                setCartItems(data.items.map(item => ({
+                    id: item.ProductID,
+                    name: item.Name,
+                    price: item.Price,
+                    quantity: item.Quantity,
+                    image: item.Image || "https://via.placeholder.com/150",
+                    stock: item.StockCount
+                })));
+            }
+        } catch (error) {
+            console.error('獲取購物車失敗:', error);
+            showErrorMessage(error.message);
+        }
+    }, [authAxios, showErrorMessage]);
+
+    useEffect(() => {
+        let isMounted = true;
+        const controller = new AbortController();
+
+        const getCartData = async () => {
+            try {
+                console.log('開始獲取購物車...');
+                const response = await authAxios.get(`${CART_SERVICE_URL}/api/v1/cart/`, {
+                    signal: controller.signal
+                });
+
+                if (!isMounted) return;
+
+                const data = response.data;
+                console.log('成功獲取購物車數據:', data);
+
+                if (data.items) {
+                    setCartItems(data.items.map(item => ({
+                        id: item.ProductID,
+                        name: item.Name,
+                        price: item.Price,
+                        quantity: item.Quantity,
+                        image: item.Image || "https://via.placeholder.com/150",
+                        stock: item.StockCount
+                    })));
+                }
+            } catch (error) {
+                if (error.name === 'AbortError' || !isMounted) return;
+
+                console.error('獲取購物車失敗:', error);
+                showErrorMessage(error.message);
+            }
+        };
+
+        getCartData();
+
+        return () => {
+            isMounted = false;
+            controller.abort();
+        };
+    }, [authAxios, showErrorMessage]);
+
+    // 修正 debounce 使用方式
+    const debouncedUpdateQuantity = useCallback((id, quantity) => {
+        // 將 debounce 函數移到 useCallback 內部
+        const updateQuantity = debounce(async (itemId, itemQuantity) => {
+            try {
+                await authAxios.put(`${CART_SERVICE_URL}/api/v1/cart/items`, {
+                    ProductID: itemId,
+                    Quantity: itemQuantity
+                });
+
+                // 清除待更新狀態
+                setPendingUpdates(prev => {
+                    const newUpdates = { ...prev };
+                    delete newUpdates[itemId];
+                    return newUpdates;
+                });
+
+                showSuccessMessage('數量已更新');
+            } catch (error) {
+                console.error('更新數量失敗:', error);
+                handleError(error);
+            }
+        }, 1000);
+
+        updateQuantity(id, quantity);
+    }, [authAxios, showSuccessMessage, handleError]);
+
+    // 處理數量變更
+    const handleQuantityChange = (id, newQuantity) => {
+        // 驗證輸入值
+        const quantity = Math.max(1, Math.min(99, Number(newQuantity) || 1));
+
+        // 更新本地狀態
+        setCartItems(prev =>
+            prev.map(item =>
+                item.id === id ? { ...item, quantity } : item
+            )
+        );
+
+        // 標記為待更新
+        setPendingUpdates(prev => ({
+            ...prev,
+            [id]: quantity
+        }));
+
+        // 觸發防抖更新
+        debouncedUpdateQuantity(id, quantity);
+    };
+
+    // 移除商品
+    const removeItem = async (id) => {
+        try {
+            await authAxios.delete(`${CART_SERVICE_URL}/api/v1/cart/items/${id}`);
+            setCartItems(items => items.filter(item => item.id !== id));
+            showSuccessMessage('商品已從購物車中移除');
+        } catch (error) {
+            console.error('移除商品失敗:', error);
+            handleError(error);
+        }
+    };
+
+    // 清空購物車
+    const handleClearCart = async () => {
+        try {
+            await authAxios.delete(`${CART_SERVICE_URL}/api/v1/cart/`);
+            setCartItems([]);
+            showSuccessMessage('購物車已清空');
+        } catch (error) {
+            console.error('清空購物車失敗:', error);
+            handleError(error);
+        }
+    };
 
     // 計算總金額
     const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -52,44 +208,90 @@ const Cart = () => {
     // 運費計算（訂單滿 2000 免運費）
     const shippingFee = total >= 2000 ? 0 : 100;
 
-    // 更新商品數量
-    const updateQuantity = (id, newQuantity) => {
-        setCartItems(items =>
-            items.map(item =>
-                item.id === id
-                    ? { ...item, quantity: Math.max(1, Math.min(newQuantity, item.stock)) }
-                    : item
-            )
-        );
-    };
-
-    // 移除商品
-    const removeItem = (id) => {
-        setCartItems(items => items.filter(item => item.id !== id));
-        setShowAlert(true);
-        setTimeout(() => setShowAlert(false), 3000);
-    };
-
     // 前往結帳
     const handleCheckout = () => {
         navigate('/checkout');
     };
 
+    // 添加測試商品函數
+    const handleAddTestItem = async () => {
+        try {
+            await authAxios.post(`${CART_SERVICE_URL}/api/v1/cart/items`, {
+                productId: "-OLlQJ2VgZvUgeVH75Vc",
+                quantity: 1
+            });
+            await fetchCartData(); // 使用我們定義的獨立函數來獲取購物車數據
+            showSuccessMessage('測試商品已添加到購物車');
+        } catch (error) {
+            console.error('添加測試商品失敗:', error);
+            handleError(error);
+        }
+    };
+
+    // 立即更新的函數
+    const updateQuantityImmediately = useCallback(async (id, quantity) => {
+        try {
+            await authAxios.put(`${CART_SERVICE_URL}/api/v1/cart/items`, {
+                ProductID: id,
+                Quantity: quantity
+            });
+        } catch (error) {
+            console.error('離開頁面時更新數量失敗:', error);
+        }
+    }, [authAxios]);
+
+    // 在組件卸載前確保所有更新都被發送
+    useEffect(() => {
+        return () => {
+            // 檢查所有待更新項目並立即發送
+            Object.entries(pendingUpdates).forEach(([id, quantity]) => {
+                updateQuantityImmediately(id, quantity);
+            });
+        };
+    }, [pendingUpdates, updateQuantityImmediately]);
+
     return (
         <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-            <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CartIcon /> 購物車
-            </Typography>
+            <Box sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                mb: 2
+            }}>
+                <Typography variant="h4" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CartIcon /> 購物車
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={handleAddTestItem}
+                        startIcon={<AddShoppingCartIcon />}
+                    >
+                        新增測試商品
+                    </Button>
+                    {cartItems.length > 0 && (
+                        <Button
+                            variant="outlined"
+                            color="error"
+                            onClick={handleClearCart}
+                            startIcon={<DeleteIcon />}
+                        >
+                            清空購物車
+                        </Button>
+                    )}
+                </Box>
+            </Box>
 
             <Grid container spacing={3}>
                 <Grid item xs={12} md={8}>
                     <Collapse in={showAlert}>
                         <Alert
-                            severity="success"
+                            severity={alertSeverity}
                             sx={{ mb: 2 }}
                             onClose={() => setShowAlert(false)}
                         >
-                            商品已從購物車中移除
+                            {alertMessage}
                         </Alert>
                     </Collapse>
 
@@ -103,6 +305,10 @@ const Cart = () => {
                                                 <img
                                                     src={item.image}
                                                     alt={item.name}
+                                                    onError={(e) => {
+                                                        console.error('圖片加載失敗:', item.image?.substring(0, 50));
+                                                        e.target.src = "https://via.placeholder.com/150";
+                                                    }}
                                                     style={{
                                                         width: '100%',
                                                         height: 'auto',
@@ -140,27 +346,33 @@ const Cart = () => {
                                                     }}>
                                                         <IconButton
                                                             size="small"
-                                                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                                            onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
                                                             disabled={item.quantity <= 1}
                                                         >
                                                             <RemoveIcon />
                                                         </IconButton>
                                                         <TextField
-                                                            size="small"
+                                                            type="number"
                                                             value={item.quantity}
-                                                            onChange={(e) => {
-                                                                const value = parseInt(e.target.value) || 1;
-                                                                updateQuantity(item.id, value);
-                                                            }}
+                                                            onChange={(e) => handleQuantityChange(item.id, e.target.value)}
                                                             inputProps={{
                                                                 min: 1,
-                                                                max: item.stock,
-                                                                style: { textAlign: 'center', width: '50px' }
+                                                                max: 99,
+                                                                step: 1
+                                                            }}
+                                                            sx={{ width: '80px' }}
+                                                            size="small"
+                                                            variant="outlined"
+                                                            onBlur={() => {
+                                                                // 當輸入框失去焦點時立即更新
+                                                                if (pendingUpdates[item.id]) {
+                                                                    debouncedUpdateQuantity.flush(); // 如果使用lodash的debounce，可以立即執行
+                                                                }
                                                             }}
                                                         />
                                                         <IconButton
                                                             size="small"
-                                                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                                            onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
                                                             disabled={item.quantity >= item.stock}
                                                         >
                                                             <AddIcon />
@@ -173,6 +385,11 @@ const Cart = () => {
                                                 <Typography variant="caption" color="text.secondary">
                                                     庫存: {item.stock} 件
                                                 </Typography>
+                                                {pendingUpdates[item.id] && (
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        更新中...
+                                                    </Typography>
+                                                )}
                                             </Grid>
                                         </Grid>
                                     </CardContent>
