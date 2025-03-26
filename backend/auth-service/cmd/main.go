@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	// "github.com/gin-contrib/cors"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/kevinsuu/OrderManagerSystem/auth-service/internal/config"
 	"github.com/kevinsuu/OrderManagerSystem/auth-service/internal/handler"
@@ -40,6 +40,16 @@ func main() {
 
 	// 使用 gin.New() 而不是 gin.Default()
 	router := gin.New()
+
+	// CORS 中間件配置
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000", "https://your-production-domain.com"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	// Logger 和 Recovery 中間件
 	router.Use(gin.Logger())
