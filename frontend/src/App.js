@@ -12,6 +12,7 @@ import AdminLayout from './layouts/Admin/AdminLayout';
 import Home from './pages/Store/Home';
 import Login from './pages/Store/Login';
 import Profile from './pages/Store/Profile';
+import Cart from './pages/Store/Cart';
 
 // Admin Pages
 import AdminLogin from './pages/Admin/Login';
@@ -75,6 +76,7 @@ function App() {
                                 <div>購物車頁面</div>
                             </UserProtectedRoute>
                         } />
+                        <Route path="cart" element={<Cart />} />
                     </Route>
 
                     {/* 管理後台路由 */}
