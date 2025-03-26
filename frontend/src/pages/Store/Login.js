@@ -28,8 +28,8 @@ const api = axios.create({
 const Login = () => {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
-        email: '',
-        password: '',
+        email: 'admin@example.com',
+        password: 'password123',
     });
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
