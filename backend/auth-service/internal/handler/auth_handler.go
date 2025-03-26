@@ -123,9 +123,9 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 
 // GetUser 獲取用戶信息
 func (h *Handler) GetUser(c *gin.Context) {
-	userID := c.Param("id")
+	userID := c.GetString("userID")
 	if userID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "user id is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unauthorized"})
 		return
 	}
 
