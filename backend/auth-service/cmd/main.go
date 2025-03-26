@@ -38,10 +38,13 @@ func main() {
 	// 初始化 HTTP 處理器
 	handler := handler.NewHandler(authService)
 
-	// 設置 Gin 路由
+	// 使用 gin.New() 而不是 gin.Default()
 	router := gin.New()
 
-	// CORS 中間件配置
+	// 添加 Recovery 中間件
+	router.Use(gin.Recovery())
+
+	// CORS 中間件配置 - 必須在所有路由之前
 	router.Use(cors.New(cors.Config{
 		AllowOrigins: []string{"http://localhost:3000", "http://localhost:3001"},
 		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
@@ -53,53 +56,40 @@ func main() {
 			"Authorization",
 			"X-Requested-With",
 		},
-		ExposeHeaders:    []string{"Content-Length"},
+		ExposeHeaders:    []string{"Content-Length", "Authorization"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// 添加基本中間件
-	router.Use(gin.Logger())
-	router.Use(gin.Recovery())
+	// 健康檢查
 
-	// 路由組
+	// API 路由組
 	api := router.Group("/api/v1")
 	{
+		// 公開路由
 		auth := api.Group("/auth")
 		{
 			auth.POST("/register", handler.Register)
 			auth.POST("/login", handler.Login)
 			auth.POST("/refresh", handler.RefreshToken)
 		}
-
-		// 健康檢查
 		api.GET("/health", handler.HealthCheck)
 
 		// 需要認證的路由
-		secured := api.Group("/")
+		secured := api.Group("/user")
 		secured.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
 		{
-			secured.GET("/validate", handler.ValidateToken)
-			secured.GET("/user/:id", handler.GetUser)
+			// 用戶偏好設置
+			secured.GET("/preferences", handler.GetPreference)
+			secured.PUT("/preferences", handler.UpdatePreference)
 
-			// 用戶相關路由組
-			user := secured.Group("/user")
+			// 地址管理
+			addresses := secured.Group("/addresses")
 			{
-				// 地址管理
-				addresses := user.Group("/addresses")
-				{
-					addresses.POST("/", handler.CreateAddress)
-					addresses.GET("/", handler.GetAddresses)
-					addresses.PUT("/:id", handler.UpdateAddress)
-					addresses.DELETE("/:id", handler.DeleteAddress)
-				}
-
-				// 用戶偏好
-				preferences := user.Group("/preferences")
-				{
-					preferences.GET("/", handler.GetPreference)
-					preferences.PUT("/", handler.UpdatePreference)
-				}
+				addresses.GET("/", handler.GetAddresses)
+				addresses.POST("/", handler.CreateAddress)
+				addresses.PUT("/:id", handler.UpdateAddress)
+				addresses.DELETE("/:id", handler.DeleteAddress)
 			}
 		}
 	}
