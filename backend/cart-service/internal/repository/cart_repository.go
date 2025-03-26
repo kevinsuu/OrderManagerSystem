@@ -33,6 +33,7 @@ func NewCartRepository(client *db.Client) CartRepository {
 }
 
 func (r *cartRepository) GetCart(ctx context.Context, userID string) (*model.Cart, error) {
+	fmt.Printf("\n🔍 從 Firebase 獲取購物車，用戶ID: %s\n", userID)
 	var cart model.Cart
 	if err := r.client.NewRef("carts").Child(userID).Get(ctx, &cart); err != nil {
 		return nil, fmt.Errorf("failed to get cart: %v", err)
