@@ -39,21 +39,31 @@ func main() {
 	handler := handler.NewHandler(authService)
 
 	// 設置 Gin 路由
-	router := gin.Default()
+	router := gin.New() // 使用 New() 而不是 Default()
 
-	// CORS 中間件配置
+	// CORS 中間件配置 - 放在最前面
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"},
-		ExposeHeaders:    []string{"Content-Length"},
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders: []string{
+			"Origin",
+			"Content-Type",
+			"Content-Length",
+			"Accept",
+			"Authorization",
+			"X-Requested-With",
+			"Access-Control-Allow-Origin",
+			"Access-Control-Allow-Headers",
+			"Access-Control-Allow-Methods",
+		},
+		ExposeHeaders:    []string{"Content-Length", "Authorization"},
 		AllowCredentials: false,
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// 中間件
-	router.Use(gin.Recovery())
+	// 添加基本中間件
 	router.Use(gin.Logger())
+	router.Use(gin.Recovery())
 
 	// 路由組
 	api := router.Group("/api/v1")
