@@ -43,11 +43,8 @@ func main() {
 
 	// 首先配置 CORS，必須在所有路由之前
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{
-		"http://localhost:3000",
-		"http://localhost:3001",
-		"https://ordermanagersystem-auth-service.onrender.com",
-	}
+	config.AllowOrigins = []string{"*"}
+	config.AllowCredentials = true
 	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"}
 	config.AllowHeaders = []string{
 		"Authorization",
