@@ -43,8 +43,7 @@ func main() {
 
 	// 首先配置 CORS，必須在所有路由之前
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"*"}
-	config.AllowCredentials = true
+	config.AllowOrigins = []string{"*"}  // 允許所有來源
 	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"}
 	config.AllowHeaders = []string{
 		"Authorization",
@@ -52,12 +51,10 @@ func main() {
 		"Origin",
 		"Accept",
 		"X-Requested-With",
-		"Access-Control-Allow-Origin",
-		"Access-Control-Allow-Methods",
-		"Access-Control-Allow-Headers",
 	}
 	config.ExposeHeaders = []string{"Content-Length"}
-	config.AllowCredentials = true
+	// 注意：當 AllowOrigins 為 "*" 時，不能設置 AllowCredentials 為 true
+	config.AllowCredentials = false
 	config.MaxAge = 12 * time.Hour
 
 	router.Use(cors.New(config))
@@ -65,17 +62,6 @@ func main() {
 	// Logger 和 Recovery 中間件
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
-
-	// 添加錯誤處理中間件
-	router.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", c.Request.Header.Get("Origin"))
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-	})
 
 	// API 路由組
 	api := router.Group("/api/v1")
