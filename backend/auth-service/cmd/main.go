@@ -47,15 +47,17 @@ func main() {
 		"http://localhost:3000",
 		"http://localhost:3001",
 		"https://ordermanagersystem-auth-service.onrender.com",
-		// 添加您的前端部署域名
 	}
-	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"}
 	config.AllowHeaders = []string{
 		"Authorization",
 		"Content-Type",
 		"Origin",
 		"Accept",
 		"X-Requested-With",
+		"Access-Control-Allow-Origin",
+		"Access-Control-Allow-Methods",
+		"Access-Control-Allow-Headers",
 	}
 	config.ExposeHeaders = []string{"Content-Length"}
 	config.AllowCredentials = true
