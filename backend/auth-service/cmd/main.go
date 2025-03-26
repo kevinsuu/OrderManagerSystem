@@ -71,6 +71,8 @@ func main() {
 		secured := api.Group("/user")
 		secured.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
 		{
+			//取得使用者資訊
+			secured.GET("/", handler.GetUser)
 			// 用戶偏好設置
 			secured.GET("/preferences", handler.GetPreference)
 			secured.PUT("/preferences", handler.UpdatePreference)
