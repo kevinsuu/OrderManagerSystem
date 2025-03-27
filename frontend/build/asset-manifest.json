@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/OrderManagerSystem/static/css/main.e6c13ad2.css",
-    "main.js": "/OrderManagerSystem/static/js/main.01db7b9b.js",
+    "main.js": "/OrderManagerSystem/static/js/main.ce4f62d1.js",
     "index.html": "/OrderManagerSystem/index.html",
     "main.e6c13ad2.css.map": "/OrderManagerSystem/static/css/main.e6c13ad2.css.map",
-    "main.01db7b9b.js.map": "/OrderManagerSystem/static/js/main.01db7b9b.js.map"
+    "main.ce4f62d1.js.map": "/OrderManagerSystem/static/js/main.ce4f62d1.js.map"
   },
   "entrypoints": [
     "static/css/main.e6c13ad2.css",
-    "static/js/main.01db7b9b.js"
+    "static/js/main.ce4f62d1.js"
   ]
 }

@@ -56,24 +56,80 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
     },
 }));
 
-const LoadingContainer = styled(Box)({
+const LoadingOverlay = styled(Box)({
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    backdropFilter: 'blur(4px)',
+    background: 'rgba(0, 13, 255, 0.05)',
+    backdropFilter: 'blur(8px)',
     zIndex: 999,
     borderRadius: '16px',
+    overflow: 'hidden',
 });
 
-const StyledCircularProgress = styled(CircularProgress)({
+const LoadingText = styled(Typography)({
     color: '#4C6EF5',
-    size: 50,
+    marginTop: '16px',
+    fontSize: '0.875rem',
+    fontWeight: 500,
+    zIndex: 2,
+});
+
+const PulseContainer = styled(Box)({
+    position: 'relative',
+    width: '80px',
+    height: '80px',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+});
+
+const PulseRing = styled(Box)(({ delay = 0 }) => ({
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    border: '3px solid #4C6EF5',
+    borderRadius: '50%',
+    animation: 'pulse 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite',
+    animationDelay: `${delay}ms`,
+    opacity: 0,
+    '@keyframes pulse': {
+        '0%': {
+            transform: 'scale(0.4)',
+            opacity: 0,
+        },
+        '50%': {
+            opacity: 0.5,
+        },
+        '100%': {
+            transform: 'scale(1.2)',
+            opacity: 0,
+        },
+    },
+}));
+
+const InnerCircle = styled(Box)({
+    width: '20px',
+    height: '20px',
+    backgroundColor: '#4C6EF5',
+    borderRadius: '50%',
+    animation: 'glow 1.5s ease-in-out infinite',
+    '@keyframes glow': {
+        '0%, 100%': {
+            transform: 'scale(1)',
+            opacity: 1,
+        },
+        '50%': {
+            transform: 'scale(1.2)',
+            opacity: 0.7,
+        },
+    },
 });
 
 const API_URL = process.env.REACT_APP_AUTH_SERVICE_URL || 'https://ordermanagersystem-auth-service.onrender.com';
@@ -169,9 +225,15 @@ const Register = () => {
         <StyledContainer maxWidth={false} disableGutters>
             <StyledPaper elevation={3}>
                 {loading && (
-                    <LoadingContainer>
-                        <StyledCircularProgress size={50} thickness={4} />
-                    </LoadingContainer>
+                    <LoadingOverlay>
+                        <PulseContainer>
+                            <PulseRing delay={0} />
+                            <PulseRing delay={400} />
+                            <PulseRing delay={800} />
+                            <InnerCircle />
+                        </PulseContainer>
+                        <LoadingText>處理中...</LoadingText>
+                    </LoadingOverlay>
                 )}
                 <Box sx={{ textAlign: 'center', mb: 4 }}>
                     <Typography variant="h4" component="h1" sx={{ fontWeight: 700, color: 'primary.main' }}>
