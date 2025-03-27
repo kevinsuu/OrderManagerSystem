@@ -54,7 +54,9 @@ func main() {
 	// Logger 和 Recovery 中間件
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
-
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok"})
+	})
 	// API 路由組
 	api := router.Group("/api/v1")
 	{
@@ -65,7 +67,6 @@ func main() {
 			auth.POST("/login", handler.Login)
 			auth.POST("/refresh", handler.RefreshToken)
 		}
-		api.GET("/health", handler.HealthCheck)
 
 		// 需要認證的路由
 		secured := api.Group("/user")

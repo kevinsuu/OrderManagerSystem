@@ -56,15 +56,14 @@ func main() {
 		AllowCredentials: false,
 		MaxAge:           12 * time.Hour,
 	}))
-
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok"})
+	})
 	// 路由組
 	api := router.Group("/api/v1")
 
 	// 公開路由（不需要驗證）
 	{
-		// 健康檢查
-		api.GET("/health", handler.HealthCheck)
-
 		// 產品查詢相關路由
 		products := api.Group("/products")
 		{
