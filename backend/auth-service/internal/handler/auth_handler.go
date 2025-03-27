@@ -142,10 +142,6 @@ func (h *Handler) GetUser(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
-// HealthCheck 健康檢查
-func (h *Handler) HealthCheck(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "ok"})
-}
 
 // CreateAddress 添加新的處理方法
 func (h *Handler) CreateAddress(c *gin.Context) {

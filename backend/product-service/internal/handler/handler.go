@@ -23,11 +23,6 @@ func NewHandler(productService service.ProductService, categoryService service.C
 	}
 }
 
-// HealthCheck 健康檢查
-func (h *Handler) HealthCheck(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "ok"})
-}
-
 // CreateProduct 創建產品
 func (h *Handler) CreateProduct(c *gin.Context) {
 	var req model.CreateProductRequest
