@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
     Box,
@@ -11,11 +11,15 @@ import {
     Link,
     Divider,
     CircularProgress,
+    InputAdornment,
+    IconButton,
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
+import { Link as RouterLink } from 'react-router-dom';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 
-const API_URL = process.env.REACT_APP_API_URL || 'https://ordermanagersystem-auth-service.onrender.com';
+const API_URL = process.env.REACT_APP_AUTH_SERVICE_URL;
 
 const StyledContainer = styled(Container)(({ theme }) => ({
     minHeight: '100vh',
@@ -87,12 +91,26 @@ const api = axios.create({
 
 const Login = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [formData, setFormData] = useState({
         email: 'admin@example.com',
         password: 'password123',
     });
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+
+    useEffect(() => {
+        if (location.state?.message) {
+            if (location.state.severity === 'success') {
+                setSuccess(location.state.message);
+            } else {
+                setError(location.state.message);
+            }
+            navigate(location.pathname, { replace: true });
+        }
+    }, [location, navigate]);
 
     const handleChange = (e) => {
         setFormData({
@@ -157,6 +175,12 @@ const Login = () => {
                     </Alert>
                 )}
 
+                {success && (
+                    <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }}>
+                        {success}
+                    </Alert>
+                )}
+
                 <Box component="form" onSubmit={handleLogin}>
                     <StyledTextField
                         margin="normal"
@@ -176,11 +200,23 @@ const Login = () => {
                         fullWidth
                         name="password"
                         label="密碼"
-                        type="password"
+                        type={showPassword ? 'text' : 'password'}
                         id="password"
                         autoComplete="current-password"
                         value={formData.password}
                         onChange={handleChange}
+                        InputProps={{
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <IconButton
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        edge="end"
+                                    >
+                                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                                    </IconButton>
+                                </InputAdornment>
+                            ),
+                        }}
                     />
                     <StyledButton
                         type="submit"
@@ -200,13 +236,14 @@ const Login = () => {
 
                     <Box sx={{ textAlign: 'center' }}>
                         <Link
-                            component="button"
+                            component={RouterLink}
+                            to="/register"
                             variant="body2"
-                            onClick={() => navigate('/register')}
                             sx={{
                                 mb: 1,
                                 color: 'primary.main',
                                 textDecoration: 'none',
+                                display: 'block',
                                 '&:hover': {
                                     textDecoration: 'underline',
                                 }
@@ -214,11 +251,10 @@ const Login = () => {
                         >
                             還沒有帳號？立即註冊
                         </Link>
-                        <br />
                         <Link
-                            component="button"
+                            component={RouterLink}
+                            to="/forgot-password"
                             variant="body2"
-                            onClick={() => navigate('/forgot-password')}
                             sx={{
                                 color: 'text.secondary',
                                 textDecoration: 'none',

@@ -43,6 +43,9 @@ import LocationOffIcon from '@mui/icons-material/LocationOff';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import LockResetIcon from '@mui/icons-material/LockReset';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { createAuthAxios } from '../../utils/auth';
 
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'https://ordermanagersystem-auth-service.onrender.com';
@@ -78,6 +81,15 @@ const Profile = () => {
     const [selectedAddress, setSelectedAddress] = useState(null);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [resetPasswordDialog, setResetPasswordDialog] = useState(false);
+    const [resetPasswordForm, setResetPasswordForm] = useState({
+        newPassword: '',
+        confirmPassword: ''
+    });
+    const [showPassword, setShowPassword] = useState({
+        newPassword: false,
+        confirmPassword: false
+    });
 
     // 使用 useMemo 創建 authAxios 實例，避免每次重新渲染都創建新實例
     const authAxios = useMemo(() => createAuthAxios(navigate), [navigate]);
@@ -262,6 +274,60 @@ const Profile = () => {
         }
     };
 
+    const handleResetPasswordOpen = () => {
+        setResetPasswordDialog(true);
+    };
+
+    const handleResetPasswordClose = () => {
+        setResetPasswordDialog(false);
+        setResetPasswordForm({
+            newPassword: '',
+            confirmPassword: ''
+        });
+    };
+
+    const handleResetPasswordSubmit = async () => {
+        try {
+            const { newPassword, confirmPassword } = resetPasswordForm;
+
+            if (newPassword !== confirmPassword) {
+                setSnackbar({
+                    open: true,
+                    message: '新密碼與確認密碼不符',
+                    severity: 'error'
+                });
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                setSnackbar({
+                    open: true,
+                    message: '密碼長度至少需要6個字符',
+                    severity: 'error'
+                });
+                return;
+            }
+
+            const response = await authAxios.post(
+                `${AUTH_SERVICE_URL}/api/v1/auth/reset-password`,
+                resetPasswordForm
+            );
+
+            setSnackbar({
+                open: true,
+                message: '密碼重置成功！',
+                severity: 'success'
+            });
+            handleResetPasswordClose();
+        } catch (error) {
+            setSnackbar({
+                open: true,
+                message: error.response?.data?.error || '密碼重置失敗，請稍後再試',
+                severity: 'error'
+            });
+        }
+    };
+
     if (isLoading) {
         return (
             <Box
@@ -334,16 +400,29 @@ const Profile = () => {
                         </Box>
                     </Box>
 
-                    <IconButton
-                        color="error"
-                        onClick={handleLogout}
-                        sx={{
-                            bgcolor: 'action.hover',
-                            '&:hover': { bgcolor: 'error.light' }
-                        }}
-                    >
-                        <LogoutIcon />
-                    </IconButton>
+                    <Box>
+                        <IconButton
+                            color="primary"
+                            onClick={handleResetPasswordOpen}
+                            sx={{
+                                mr: 1,
+                                bgcolor: 'action.hover',
+                                '&:hover': { bgcolor: 'primary.light' }
+                            }}
+                        >
+                            <LockResetIcon />
+                        </IconButton>
+                        <IconButton
+                            color="error"
+                            onClick={handleLogout}
+                            sx={{
+                                bgcolor: 'action.hover',
+                                '&:hover': { bgcolor: 'error.light' }
+                            }}
+                        >
+                            <LogoutIcon />
+                        </IconButton>
+                    </Box>
                 </Box>
 
                 <List sx={{ bgcolor: 'background.paper', borderRadius: 1 }}>
@@ -721,6 +800,87 @@ const Profile = () => {
                         variant="contained"
                     >
                         刪除
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog
+                open={resetPasswordDialog}
+                onClose={handleResetPasswordClose}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle>
+                    重置密碼
+                </DialogTitle>
+                <DialogContent>
+                    <Box sx={{ mt: 2 }}>
+                        <Grid container spacing={2}>
+                            <Grid item xs={12}>
+                                <TextField
+                                    required
+                                    margin="dense"
+                                    label="新密碼"
+                                    type={showPassword.newPassword ? "text" : "password"}
+                                    fullWidth
+                                    value={resetPasswordForm.newPassword}
+                                    onChange={(e) =>
+                                        setResetPasswordForm({
+                                            ...resetPasswordForm,
+                                            newPassword: e.target.value
+                                        })
+                                    }
+                                    InputProps={{
+                                        endAdornment: (
+                                            <IconButton
+                                                onClick={() => setShowPassword({
+                                                    ...showPassword,
+                                                    newPassword: !showPassword.newPassword
+                                                })}
+                                                edge="end"
+                                            >
+                                                {showPassword.newPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                                            </IconButton>
+                                        ),
+                                    }}
+                                />
+                            </Grid>
+                            <Grid item xs={12}>
+                                <TextField
+                                    required
+                                    margin="dense"
+                                    label="確認新密碼"
+                                    type={showPassword.confirmPassword ? "text" : "password"}
+                                    fullWidth
+                                    value={resetPasswordForm.confirmPassword}
+                                    onChange={(e) =>
+                                        setResetPasswordForm({
+                                            ...resetPasswordForm,
+                                            confirmPassword: e.target.value
+                                        })
+                                    }
+                                    InputProps={{
+                                        endAdornment: (
+                                            <IconButton
+                                                onClick={() => setShowPassword({
+                                                    ...showPassword,
+                                                    confirmPassword: !showPassword.confirmPassword
+                                                })}
+                                                edge="end"
+                                            >
+                                                {showPassword.confirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                                            </IconButton>
+                                        ),
+                                    }}
+                                />
+                            </Grid>
+                        </Grid>
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleResetPasswordClose}>取消</Button>
+                    <Button onClick={handleResetPasswordSubmit} variant="contained">
+                        確認重置
                     </Button>
                 </DialogActions>
             </Dialog>
