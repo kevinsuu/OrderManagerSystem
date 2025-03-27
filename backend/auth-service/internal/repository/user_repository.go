@@ -26,6 +26,13 @@ type IUserRepository interface {
 	DeleteAddress(ctx context.Context, id string) error
 	GetPreference(ctx context.Context, userID string) (*model.UserPreference, error)
 	UpdatePreference(ctx context.Context, pref *model.UserPreference) error
+	FindByUsername(ctx context.Context, username string) (*model.User, error)
+	FindByID(ctx context.Context, id string) (*model.User, error)
+	FindByEmail(ctx context.Context, email string) (*model.User, error)
+	SavePasswordResetToken(ctx context.Context, userID, token string) error
+	GetPasswordResetToken(ctx context.Context, userID string) (string, error)
+	DeletePasswordResetToken(ctx context.Context, userID string) error
+	UpdatePassword(ctx context.Context, userID, hashedPassword string) error
 }
 
 // UserRepository Realtime Database 實現
@@ -407,4 +414,71 @@ func (r *UserRepository) UpdatePreference(ctx context.Context, pref *model.UserP
 
 	log.Printf("Saved preference data: %+v", savedPref)
 	return nil
+}
+
+// FindByEmail 通過郵箱查找用戶
+func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*model.User, error) {
+	var users map[string]*model.User
+	ref := r.client.NewRef("users")
+	if err := ref.OrderByChild("email").EqualTo(email).Get(ctx, &users); err != nil {
+		return nil, err
+	}
+
+	for _, user := range users {
+		return user, nil
+	}
+
+	return nil, ErrNotFound
+}
+
+// SavePasswordResetToken 保存密碼重置token
+func (r *UserRepository) SavePasswordResetToken(ctx context.Context, userID, token string) error {
+	ref := r.client.NewRef("password_reset_tokens/" + userID)
+	return ref.Set(ctx, map[string]interface{}{
+		"token":      token,
+		"created_at": time.Now().Unix(),
+	})
+}
+
+// GetPasswordResetToken 獲取密碼重置token
+func (r *UserRepository) GetPasswordResetToken(ctx context.Context, userID string) (string, error) {
+	var resetData struct {
+		Token     string `json:"token"`
+		CreatedAt int64  `json:"created_at"`
+	}
+
+	ref := r.client.NewRef("password_reset_tokens/" + userID)
+	if err := ref.Get(ctx, &resetData); err != nil {
+		return "", err
+	}
+
+	// 檢查 token 是否過期（15分鐘）
+	if time.Now().Unix()-resetData.CreatedAt > 900 {
+		r.DeletePasswordResetToken(ctx, userID)
+		return "", ErrTokenExpired
+	}
+
+	return resetData.Token, nil
+}
+
+// DeletePasswordResetToken 刪除密碼重置token
+func (r *UserRepository) DeletePasswordResetToken(ctx context.Context, userID string) error {
+	ref := r.client.NewRef("password_reset_tokens/" + userID)
+	return ref.Delete(ctx)
+}
+
+// UpdatePassword 更新用戶密碼
+func (r *UserRepository) UpdatePassword(ctx context.Context, userID, hashedPassword string) error {
+	ref := r.client.NewRef("users/" + userID + "/password")
+	return ref.Set(ctx, hashedPassword)
+}
+
+// FindByID 通過ID查找用戶
+func (r *UserRepository) FindByID(ctx context.Context, id string) (*model.User, error) {
+	return r.GetByID(ctx, id)
+}
+
+// FindByUsername 通過用戶名查找用戶
+func (r *UserRepository) FindByUsername(ctx context.Context, username string) (*model.User, error) {
+	return r.GetByUsername(ctx, username)
 }

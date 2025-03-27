@@ -11,12 +11,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/kevinsuu/OrderManagerSystem/auth-service/internal/model"
 	"github.com/kevinsuu/OrderManagerSystem/auth-service/internal/repository"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
 	ErrUserNotFound       = errors.New("user not found")
 	ErrInvalidPassword    = errors.New("invalid password")
-	ErrUserExists         = errors.New("user/email already exists")
+	ErrUserExists         = errors.New("user already exists")
 	ErrInvalidToken       = errors.New("invalid token")
 	ErrTokenExpired       = errors.New("token expired")
 	ErrUsernameTaken      = errors.New("username already taken")
@@ -37,6 +38,8 @@ type IAuthService interface {
 	GetPreference(ctx context.Context, userID string) (*model.UserPreference, error)
 	UpdatePreference(ctx context.Context, userID string, req *model.PreferenceRequest) (*model.UserPreference, error)
 	GetAddressByID(ctx context.Context, addressID string) (*model.Address, error)
+	ResetPassword(ctx context.Context, tokenString, newPassword string) error
+	ForgetPassword(ctx context.Context, emailString, newPassword string) error
 }
 
 // authService 實現 IAuthService 接口
@@ -335,4 +338,71 @@ func (s *authService) GetAddressByID(ctx context.Context, addressID string) (*mo
 		return nil, err
 	}
 	return address, nil
+}
+
+// ForgetPassword 忘記密碼
+func (s *authService) ForgetPassword(ctx context.Context, emailString, newPassword string) error {
+
+	// 透過email找到userID
+	user, err := s.userRepo.GetByEmail(ctx, emailString)
+	if err != nil {
+		return err
+	}
+
+	userID := user.ID
+	if userID == "" {
+		return ErrUserNotFound
+	}
+
+	// 更新密碼
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	err = s.userRepo.UpdatePassword(ctx, userID, string(hashedPassword))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ResetPassword 重置密碼
+func (s *authService) ResetPassword(ctx context.Context, tokenString, newPassword string) error {
+	// 1. 驗證 token
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return s.jwtSecret, nil
+	})
+
+	if err != nil || !token.Valid {
+		return ErrInvalidToken
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return ErrInvalidToken
+	}
+
+	// 從 token 中獲取用戶 ID
+	userID, ok := claims["sub"].(string)
+	if !ok {
+		return ErrInvalidToken
+	}
+
+	// 2. 更新密碼
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	err = s.userRepo.UpdatePassword(ctx, userID, string(hashedPassword))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

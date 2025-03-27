@@ -19,6 +19,98 @@ func NewHandler(authService service.IAuthService) *Handler {
 	}
 }
 
+type ForgotPasswordRequest struct {
+	Email           string `json:"email" binding:"required,email"`
+	NewPassword     string `json:"newPassword" binding:"required,min=6"`
+	ConfirmPassword string `json:"confirmPassword" binding:"required"`
+}
+
+// ResetPasswordRequest 定義重設密碼請求結構
+type ResetPasswordRequest struct {
+	Token           string `json:"token" binding:"required"`
+	NewPassword     string `json:"newPassword" binding:"required,min=6"`
+	ConfirmPassword string `json:"confirmPassword" binding:"required"`
+}
+
+// ForgotPassword 處理忘記密碼請求
+func (h *Handler) ForgotPassword(c *gin.Context) {
+	var req ForgotPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "無效的請求格式"})
+		return
+	}
+
+	if req.NewPassword != req.ConfirmPassword {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "新密碼與確認密碼不符"})
+		return
+	}
+
+	// 調用服務層重設密碼
+	err := h.authService.ForgetPassword(c.Request.Context(), req.Email, req.NewPassword)
+	if err != nil {
+		switch err {
+		case service.ErrUserNotFound:
+			c.JSON(http.StatusNotFound, gin.H{"error": "找不到該用戶"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "重設密碼失敗"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "密碼重設成功",
+	})
+}
+
+// ResetPassword 處理重設密碼請求
+func (h *Handler) ResetPassword(c *gin.Context) {
+	// 從 Authorization header 獲取 token
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "需要登入才能重設密碼"})
+		return
+	}
+
+	tokenParts := strings.Split(authHeader, " ")
+	if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "無效的認證格式"})
+		return
+	}
+
+	var req struct {
+		NewPassword     string `json:"newPassword" binding:"required,min=6"`
+		ConfirmPassword string `json:"confirmPassword" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "無效的請求格式"})
+		return
+	}
+
+	if req.NewPassword != req.ConfirmPassword {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "新密碼與確認密碼不符"})
+		return
+	}
+
+	// 調用服務層重設密碼
+	err := h.authService.ResetPassword(c.Request.Context(), tokenParts[1], req.NewPassword)
+	if err != nil {
+		switch err {
+		case service.ErrInvalidToken:
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "無效的認證令牌"})
+		case service.ErrUserNotFound:
+			c.JSON(http.StatusNotFound, gin.H{"error": "找不到該用戶"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "重設密碼失敗"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "密碼重設成功",
+	})
+}
+
 // Register 用戶註冊
 func (h *Handler) Register(c *gin.Context) {
 	var req model.UserRegisterRequest
@@ -141,7 +233,6 @@ func (h *Handler) GetUser(c *gin.Context) {
 
 	c.JSON(http.StatusOK, user)
 }
-
 
 // CreateAddress 添加新的處理方法
 func (h *Handler) CreateAddress(c *gin.Context) {

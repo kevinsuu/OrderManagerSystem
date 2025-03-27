@@ -66,6 +66,8 @@ func main() {
 			auth.POST("/register", handler.Register)
 			auth.POST("/login", handler.Login)
 			auth.POST("/refresh", handler.RefreshToken)
+			auth.POST("/forgot-password", handler.ForgotPassword)
+			auth.POST("/reset-password", handler.ResetPassword)
 		}
 
 		// 需要認證的路由
