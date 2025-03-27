@@ -27,6 +27,7 @@ import {
     Alert,
     Menu,
     MenuItem,
+    CircularProgress,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import SaveIcon from '@mui/icons-material/Save';
@@ -76,6 +77,7 @@ const Profile = () => {
     const [anchorEl, setAnchorEl] = useState(null);
     const [selectedAddress, setSelectedAddress] = useState(null);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
     // 使用 useMemo 創建 authAxios 實例，避免每次重新渲染都創建新實例
     const authAxios = useMemo(() => createAuthAxios(navigate), [navigate]);
@@ -83,6 +85,7 @@ const Profile = () => {
     // 將 fetchUserData 包裝在 useCallback 中以記憶化函數
     const fetchUserData = useCallback(async () => {
         try {
+            setIsLoading(true);
             const token = localStorage.getItem('userToken');
             console.log('當前 token:', token ? '存在' : '不存在');
 
@@ -109,6 +112,8 @@ const Profile = () => {
                 console.error('錯誤狀態:', error.response.status);
                 console.error('錯誤數據:', error.response.data);
             }
+        } finally {
+            setIsLoading(false);
         }
     }, [authAxios]); // 添加 authAxios 作為依賴
 
@@ -257,8 +262,45 @@ const Profile = () => {
         }
     };
 
+    if (isLoading) {
+        return (
+            <Box
+                sx={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    minHeight: '100vh',
+                    backgroundColor: 'background.default'
+                }}
+            >
+                <CircularProgress size={60} thickness={4} />
+            </Box>
+        );
+    }
+
     if (!user) {
-        return null;
+        return (
+            <Box
+                sx={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    minHeight: '100vh',
+                    flexDirection: 'column',
+                    gap: 2
+                }}
+            >
+                <Typography variant="h6" color="text.secondary">
+                    無法載入用戶資料
+                </Typography>
+                <Button
+                    variant="contained"
+                    onClick={() => navigate('/login')}
+                >
+                    重新登入
+                </Button>
+            </Box>
+        );
     }
 
     return (
