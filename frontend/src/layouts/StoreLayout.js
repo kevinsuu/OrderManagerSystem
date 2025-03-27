@@ -25,12 +25,40 @@ const StoreLayout = () => {
 
     useEffect(() => {
         // 檢查是否已登入
-        const userToken = localStorage.getItem('userToken');
-        const userData = localStorage.getItem('userData');
+        const checkLoginStatus = () => {
+            const userToken = localStorage.getItem('userToken');
+            const userData = localStorage.getItem('userData');
 
-        if (userToken && userData) {
-            setUser(JSON.parse(userData));
-        }
+            if (userToken && userData) {
+                setUser(JSON.parse(userData));
+            } else {
+                setUser(null);
+            }
+        };
+
+        // 初始檢查
+        checkLoginStatus();
+
+        // 監聽 storage 變化
+        const handleStorageChange = (e) => {
+            if (e.key === 'userToken' || e.key === 'userData') {
+                checkLoginStatus();
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+
+        // 創建自定義事件來處理同一頁面的狀態更新
+        const handleLoginStateChange = () => {
+            checkLoginStatus();
+        };
+
+        window.addEventListener('loginStateChange', handleLoginStateChange);
+
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            window.removeEventListener('loginStateChange', handleLoginStateChange);
+        };
     }, []);
 
     const handleMenuOpen = (event) => {
@@ -45,6 +73,8 @@ const StoreLayout = () => {
         localStorage.removeItem('userToken');
         localStorage.removeItem('userData');
         setUser(null);
+        // 觸發登入狀態變更事件
+        window.dispatchEvent(new Event('loginStateChange'));
         handleMenuClose();
         navigate('/');
     };
