@@ -1,0 +1,276 @@
+import React, { useState } from 'react';
+import {
+    Box,
+    Container,
+    Paper,
+    TextField,
+    Button,
+    Typography,
+    Alert,
+    Link,
+    Divider,
+    CircularProgress,
+    IconButton
+} from '@mui/material';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { styled } from '@mui/material/styles';
+import axios from 'axios';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+
+const StyledContainer = styled(Container)(({ theme }) => ({
+    minHeight: '100vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'linear-gradient(135deg, #6B73FF 0%, #000DFF 100%)',
+    padding: theme.spacing(3),
+}));
+
+const StyledPaper = styled(Paper)(({ theme }) => ({
+    padding: theme.spacing(4),
+    width: '100%',
+    maxWidth: '400px',
+    borderRadius: '16px',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+}));
+
+const StyledButton = styled(Button)(({ theme }) => ({
+    padding: theme.spacing(1.5),
+    borderRadius: '8px',
+    textTransform: 'none',
+    fontSize: '1rem',
+    fontWeight: 600,
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+    '&:hover': {
+        boxShadow: '0 6px 16px rgba(0, 0, 0, 0.2)',
+    },
+}));
+
+const StyledTextField = styled(TextField)(({ theme }) => ({
+    '& .MuiOutlinedInput-root': {
+        borderRadius: '8px',
+        '&:hover fieldset': {
+            borderColor: theme.palette.primary.main,
+        },
+    },
+}));
+
+const LoadingContainer = styled(Box)({
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backdropFilter: 'blur(4px)',
+    zIndex: 999,
+    borderRadius: '16px',
+});
+
+const StyledCircularProgress = styled(CircularProgress)({
+    color: '#4C6EF5',
+    size: 50,
+});
+
+const ForgotPassword = () => {
+    const navigate = useNavigate();
+    const [formData, setFormData] = useState({
+        email: '',
+        newPassword: '',
+        confirmPassword: ''
+    });
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const [showPassword, setShowPassword] = useState({
+        newPassword: false,
+        confirmPassword: false
+    });
+
+    const handleChange = (e) => {
+        setFormData({
+            ...formData,
+            [e.target.name]: e.target.value
+        });
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        const { email, newPassword, confirmPassword } = formData;
+
+        // 基本驗證
+        if (!email || !newPassword || !confirmPassword) {
+            setError('請填寫所有欄位');
+            return;
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            setError('請輸入有效的電子郵件地址');
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            setError('兩次輸入的密碼不一致');
+            return;
+        }
+        if (newPassword.length < 6) {
+            setError('密碼長度至少需要6個字符');
+            return;
+        }
+
+        setLoading(true);
+        setError('');
+        setSuccess('');
+
+        try {
+            const response = await axios.post('http://localhost:8083/api/v1/auth/forgot-password', {
+                email,
+                newPassword,
+                confirmPassword
+            });
+
+            setSuccess('密碼重置成功！');
+            setTimeout(() => {
+                navigate('/login');
+            }, 2000);
+        } catch (error) {
+            setError(error.response?.data?.error || '密碼重置失敗，請稍後再試');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <StyledContainer maxWidth={false} disableGutters>
+            <StyledPaper elevation={3}>
+                {loading && (
+                    <LoadingContainer>
+                        <StyledCircularProgress size={50} thickness={4} />
+                    </LoadingContainer>
+                )}
+                <Box sx={{ textAlign: 'center', mb: 4 }}>
+                    <Typography variant="h4" component="h1" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                        訂單管理系統
+                    </Typography>
+                    <Typography variant="subtitle1" sx={{ mt: 1, color: 'text.secondary' }}>
+                        重設密碼
+                    </Typography>
+                </Box>
+
+                {error && (
+                    <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+                        {error}
+                    </Alert>
+                )}
+
+                {success && (
+                    <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }}>
+                        {success}
+                    </Alert>
+                )}
+
+                <Box component="form" onSubmit={handleSubmit}>
+                    <StyledTextField
+                        margin="normal"
+                        required
+                        fullWidth
+                        id="email"
+                        label="電子郵件"
+                        name="email"
+                        autoComplete="email"
+                        autoFocus
+                        value={formData.email}
+                        onChange={handleChange}
+                        disabled={loading}
+                    />
+                    <StyledTextField
+                        margin="normal"
+                        required
+                        fullWidth
+                        name="newPassword"
+                        label="新密碼"
+                        type={showPassword.newPassword ? "text" : "password"}
+                        id="newPassword"
+                        value={formData.newPassword}
+                        onChange={handleChange}
+                        disabled={loading}
+                        InputProps={{
+                            endAdornment: (
+                                <IconButton
+                                    onClick={() => setShowPassword({
+                                        ...showPassword,
+                                        newPassword: !showPassword.newPassword
+                                    })}
+                                    edge="end"
+                                >
+                                    {showPassword.newPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                                </IconButton>
+                            ),
+                        }}
+                    />
+                    <StyledTextField
+                        margin="normal"
+                        required
+                        fullWidth
+                        name="confirmPassword"
+                        label="確認新密碼"
+                        type={showPassword.confirmPassword ? "text" : "password"}
+                        id="confirmPassword"
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
+                        disabled={loading}
+                        InputProps={{
+                            endAdornment: (
+                                <IconButton
+                                    onClick={() => setShowPassword({
+                                        ...showPassword,
+                                        confirmPassword: !showPassword.confirmPassword
+                                    })}
+                                    edge="end"
+                                >
+                                    {showPassword.confirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                                </IconButton>
+                            ),
+                        }}
+                    />
+                    <StyledButton
+                        type="submit"
+                        fullWidth
+                        variant="contained"
+                        sx={{ mt: 3 }}
+                        disabled={loading}
+                    >
+                        {loading ? '處理中...' : '重設密碼'}
+                    </StyledButton>
+
+                    <Divider sx={{ my: 3 }}>
+                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                            或
+                        </Typography>
+                    </Divider>
+
+                    <Box sx={{ textAlign: 'center' }}>
+                        <Link
+                            component={RouterLink}
+                            to="/login"
+                            variant="body2"
+                            sx={{
+                                color: 'primary.main',
+                                textDecoration: 'none',
+                                '&:hover': {
+                                    textDecoration: 'underline',
+                                }
+                            }}
+                        >
+                            返回登入頁面
+                        </Link>
+                    </Box>
+                </Box>
+            </StyledPaper>
+        </StyledContainer>
+    );
+};
+
+export default ForgotPassword; 

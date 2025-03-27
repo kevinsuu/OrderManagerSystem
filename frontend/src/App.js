@@ -13,6 +13,8 @@ import AdminLayout from './layouts/Admin/AdminLayout';
 // Store Pages
 import Home from './pages/Store/Home';
 import Login from './pages/Store/Login';
+import Register from './pages/Store/Register';
+import ForgotPassword from './pages/Store/ForgotPassword';
 import Profile from './pages/Store/Profile';
 import Cart from './pages/Store/Cart';
 
@@ -53,8 +55,10 @@ function App() {
                 <CssBaseline />
                 <Router>
                     <Routes>
-                        {/* 登入頁面 */}
+                        {/* 登入相關頁面 */}
                         <Route path="/login" element={<Login />} />
+                        <Route path="/register" element={<Register />} />
+                        <Route path="/forgot-password" element={<ForgotPassword />} />
 
                         {/* 商店前台路由 */}
                         <Route path="/" element={<StoreLayout />}>
