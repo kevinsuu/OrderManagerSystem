@@ -50,9 +50,11 @@ func (h *Handler) ForgotPassword(c *gin.Context) {
 	if err != nil {
 		switch err {
 		case service.ErrUserNotFound:
-			c.JSON(http.StatusNotFound, gin.H{"error": "找不到該用戶"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "找不到此電子郵件地址的帳號"})
+		case service.ErrInvalidPassword:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "密碼格式不正確"})
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "重設密碼失敗"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "重設密碼失敗，請稍後再試"})
 		}
 		return
 	}
