@@ -342,15 +342,14 @@ func (s *authService) GetAddressByID(ctx context.Context, addressID string) (*mo
 
 // ForgetPassword 忘記密碼
 func (s *authService) ForgetPassword(ctx context.Context, emailString, newPassword string) error {
-
 	// 透過email找到userID
 	user, err := s.userRepo.GetByEmail(ctx, emailString)
 	if err != nil {
 		return err
 	}
 
-	userID := user.ID
-	if userID == "" {
+	// 如果找不到用戶
+	if user == nil {
 		return ErrUserNotFound
 	}
 
@@ -360,7 +359,7 @@ func (s *authService) ForgetPassword(ctx context.Context, emailString, newPasswo
 		return err
 	}
 
-	err = s.userRepo.UpdatePassword(ctx, userID, string(hashedPassword))
+	err = s.userRepo.UpdatePassword(ctx, user.ID, string(hashedPassword))
 	if err != nil {
 		return err
 	}
