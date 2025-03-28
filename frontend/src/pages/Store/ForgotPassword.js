@@ -9,7 +9,6 @@ import {
     Alert,
     Link,
     Divider,
-    CircularProgress,
     IconButton
 } from '@mui/material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
@@ -146,7 +145,7 @@ const ForgotPassword = () => {
         newPassword: false,
         confirmPassword: false
     });
-
+    const AUTH_SERVICE_URL = process.env.REACT_APP_AUTH_SERVICE_URL || 'https://ordermanagersystem-auth-service.onrender.com';
     const handleChange = (e) => {
         setFormData({
             ...formData,
@@ -181,7 +180,7 @@ const ForgotPassword = () => {
         setSuccess('');
 
         try {
-            const response = await axios.post('http://localhost:8083/api/v1/auth/forgot-password', {
+            await axios.post(`${AUTH_SERVICE_URL}/api/v1/auth/forgot-password`, {
                 email,
                 newPassword,
                 confirmPassword

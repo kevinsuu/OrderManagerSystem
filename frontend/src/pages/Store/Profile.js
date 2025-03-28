@@ -308,7 +308,7 @@ const Profile = () => {
                 return;
             }
 
-            const response = await authAxios.post(
+            await authAxios.post(
                 `${AUTH_SERVICE_URL}/api/v1/auth/reset-password`,
                 resetPasswordForm
             );
