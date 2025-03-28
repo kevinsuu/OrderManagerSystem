@@ -17,6 +17,7 @@ import Register from './pages/Store/Register';
 import ForgotPassword from './pages/Store/ForgotPassword';
 import Profile from './pages/Store/Profile';
 import Cart from './pages/Store/Cart';
+import ProductDetail from './pages/Store/ProductDetail';
 
 // Admin Pages
 import AdminLogin from './pages/Admin/Login';
@@ -72,6 +73,7 @@ function App() {
                                 }
                             />
                             <Route path="store" element={<Home />} />
+                            <Route path="store/product/:id" element={<ProductDetail />} />
                             <Route path="store/orders" element={
                                 <UserProtectedRoute>
                                     <div>訂單記錄頁面</div>
