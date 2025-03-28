@@ -41,6 +41,13 @@ func NewProductService(repo repository.ProductRepository) ProductService {
 
 // Create 創建產品
 func (s *productService) Create(ctx context.Context, req *model.CreateProductRequest) (*model.Product, error) {
+	// 驗證每個圖片至少有一個來源（URL 或 base64）
+	for _, img := range req.Images {
+		if img.Data == "" && img.URL == "" {
+			return nil, fmt.Errorf("每個圖片必須提供 URL 或 base64 數據")
+		}
+	}
+
 	product := &model.Product{
 		ID:          uuid.New().String(),
 		Name:        req.Name,
@@ -80,7 +87,25 @@ func (s *productService) Create(ctx context.Context, req *model.CreateProductReq
 
 // GetByID 獲取產品
 func (s *productService) GetByID(ctx context.Context, id string) (*model.Product, error) {
-	return s.repo.GetByID(ctx, id)
+	product, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if product == nil {
+		return nil, ErrProductNotFound
+	}
+
+	// 確保每個圖片都有完整的欄位
+	for i := range product.Images {
+		if product.Images[i].Data == "" {
+			product.Images[i].Data = ""
+		}
+		if product.Images[i].URL == "" {
+			product.Images[i].URL = ""
+		}
+	}
+
+	return product, nil
 }
 
 // List 獲取產品列表
@@ -118,6 +143,12 @@ func (s *productService) Update(ctx context.Context, id string, req *model.Updat
 		product.Category = *req.Category
 	}
 	if len(req.Images) > 0 {
+		// 驗證每個圖片至少有一個來源（URL 或 base64）
+		for _, img := range req.Images {
+			if img.Data == "" && img.URL == "" {
+				return nil, fmt.Errorf("每個圖片必須提供 URL 或 base64 數據")
+			}
+		}
 		product.Images = req.Images
 		for i := range product.Images {
 			if product.Images[i].ID == "" {
