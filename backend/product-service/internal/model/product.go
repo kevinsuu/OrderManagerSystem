@@ -20,23 +20,24 @@ type Product struct {
 	Description string        `json:"description" db:"description"`
 	Price       float64       `json:"price" db:"price"`
 	Stock       int           `json:"stock" db:"stock"`
-	Status      ProductStatus `json:"status"`
+	Status      ProductStatus `json:"status" db:"status"`
 	Category    string        `json:"category" db:"category"`
 	Images      []Image       `json:"images" gorm:"foreignKey:ProductID"`
-	Attributes  []Attribute   `json:"attributes" gorm:"foreignKey:ProductID"`
+	Attributes  []Attribute   `json:"attributes,omitempty" gorm:"foreignKey:ProductID"`
 	CreatedAt   time.Time     `json:"created_at" db:"created_at"`
 	UpdatedAt   time.Time     `json:"updated_at" db:"updated_at"`
-	DeletedAt   *time.Time    `json:"deletedAt,omitempty" gorm:"index"`
+	DeletedAt   *time.Time    `json:"deleted_at,omitempty" gorm:"index"`
 }
 
 // Image 產品圖片
 type Image struct {
-	ID        string    `json:"id,omitempty" gorm:"primaryKey"`
-	ProductID string    `json:"productId,omitempty" gorm:"index"`
-	Data      string    `json:"data" binding:"required"` // base64 圖片數據
+	ID        string    `json:"id" gorm:"primaryKey"`
+	ProductID string    `json:"productId" gorm:"index"`
+	Data      string    `json:"data"` // base64 圖片數據
+	URL       string    `json:"url"`  // 圖片 URL
 	Sort      int       `json:"sort"`
-	CreatedAt time.Time `json:"createdAt,omitempty"`
-	UpdatedAt time.Time `json:"updatedAt,omitempty"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // Attribute 產品屬性
