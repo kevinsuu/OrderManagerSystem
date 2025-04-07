@@ -25,6 +25,7 @@ type CartServiceConfig struct {
 
 type CartService interface {
 	GetCart(ctx context.Context, userID string) (*model.CartResponse, error)
+	GetCartItems(ctx context.Context, userID string) ([]model.CartItem, error)
 	AddItem(ctx context.Context, userID string, req *model.AddToCartRequest) error
 	RemoveItem(ctx context.Context, userID string, productID string) error
 	UpdateQuantity(ctx context.Context, userID string, req *model.UpdateQuantityRequest) error
@@ -266,4 +267,13 @@ func (s *cartService) CreateOrder(ctx context.Context, userID string) error {
 	}
 
 	return nil
+}
+
+// 添加 GetCartItems 方法實現
+func (s *cartService) GetCartItems(ctx context.Context, userID string) ([]model.CartItem, error) {
+	cart, err := s.cartRepo.GetCart(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return cart.Items, nil
 }

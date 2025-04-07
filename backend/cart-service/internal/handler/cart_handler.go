@@ -12,18 +12,18 @@ import (
 	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/service"
 )
 
-type Handler struct {
+type CartHandler struct {
 	cartService service.CartService
 }
 
-func NewHandler(cartService service.CartService) *Handler {
-	return &Handler{
+func NewCartHandler(cartService service.CartService) *CartHandler {
+	return &CartHandler{
 		cartService: cartService,
 	}
 }
 
 // GetCart 獲取購物車
-func (h *Handler) GetCart(c *gin.Context) {
+func (h *CartHandler) GetCart(c *gin.Context) {
 	userID := c.GetString("userID")
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -46,7 +46,7 @@ func (h *Handler) GetCart(c *gin.Context) {
 }
 
 // AddToCart 添加商品到購物車
-func (h *Handler) AddToCart(c *gin.Context) {
+func (h *CartHandler) AddToCart(c *gin.Context) {
 	var req model.AddToCartRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -95,7 +95,7 @@ func (h *Handler) AddToCart(c *gin.Context) {
 }
 
 // RemoveFromCart 從購物車中移除商品
-func (h *Handler) RemoveFromCart(c *gin.Context) {
+func (h *CartHandler) RemoveFromCart(c *gin.Context) {
 	userID := c.GetString("userID")
 	productID := c.Param("productId")
 
@@ -108,7 +108,7 @@ func (h *Handler) RemoveFromCart(c *gin.Context) {
 }
 
 // UpdateQuantity 更新購物車商品數量
-func (h *Handler) UpdateQuantity(c *gin.Context) {
+func (h *CartHandler) UpdateQuantity(c *gin.Context) {
 	var req model.UpdateQuantityRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -144,7 +144,7 @@ func (h *Handler) UpdateQuantity(c *gin.Context) {
 }
 
 // SelectItems 選擇購物車中的商品
-func (h *Handler) SelectItems(c *gin.Context) {
+func (h *CartHandler) SelectItems(c *gin.Context) {
 	var req model.SelectItemsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -170,7 +170,7 @@ func (h *Handler) SelectItems(c *gin.Context) {
 }
 
 // ClearCart 清空購物車
-func (h *Handler) ClearCart(c *gin.Context) {
+func (h *CartHandler) ClearCart(c *gin.Context) {
 	userID := c.GetString("userID")
 
 	if err := h.cartService.ClearCart(c.Request.Context(), userID); err != nil {
@@ -182,7 +182,7 @@ func (h *Handler) ClearCart(c *gin.Context) {
 }
 
 // CreateOrder 從購物車創建訂單
-func (h *Handler) CreateOrder(c *gin.Context) {
+func (h *CartHandler) CreateOrder(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 	if token == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "no authorization header"})

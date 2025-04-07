@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"time"
-
 	"firebase.google.com/go/db"
 	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/model"
 )

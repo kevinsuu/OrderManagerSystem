@@ -55,7 +55,7 @@ type FirebaseConfig struct {
 func LoadConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
-			Address: getEnv("SERVER_ADDRESS", ":8086"),
+			Address: getEnv("SERVER_ADDRESS", ":8082"),
 		},
 		Firebase: FirebaseConfig{
 			CredentialsFile: os.Getenv("FIREBASE_CREDENTIALS"),
@@ -63,9 +63,6 @@ func LoadConfig() *Config {
 		},
 		ProductService: ProductServiceConfig{
 			BaseURL: getEnv("PRODUCT_SERVICE_URL", "https://ordermanagersystem-product-service.onrender.com"),
-		},
-		OrderService: OrderServiceConfig{
-			BaseURL: getEnv("ORDER_SERVICE_URL", "https://ordermanagersystem-order-service.onrender.com"),
 		},
 	}
 }

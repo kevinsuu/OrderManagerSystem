@@ -44,10 +44,6 @@ func main() {
 		fmt.Printf("Warning: %v", err)
 	}
 
-	if err := checkServiceHealth(cfg.OrderService.BaseURL, "Order Service"); err != nil {
-		fmt.Printf("Warning: %v", err)
-	}
-
 	// 初始化 Firebase
 	ctx := context.Background()
 	fb, err := firebase.InitFirebase(ctx, cfg.Firebase.CredentialsFile, cfg.Firebase.ProjectID)
@@ -55,20 +51,23 @@ func main() {
 		log.Fatalf("Failed to initialize Firebase: %v", err)
 	}
 
-	// 初始化存儲層
+	// 初始化倉庫
 	cartRepo := repository.NewCartRepository(fb.Database)
+	orderRepo := repository.NewOrderRepository(fb.Database)
 
 	// 初始化客戶端
 	productClient := client.NewProductClient(cfg.ProductService.BaseURL)
 	orderClient := client.NewOrderClient(cfg.OrderService.BaseURL)
 
 	// 初始化服務層
+	orderService := service.NewOrderService(orderRepo)
 	cartService := service.NewCartService(cartRepo, productClient, orderClient, &service.CartServiceConfig{
 		ProductServiceBaseURL: cfg.ProductService.BaseURL,
 	})
 
 	// 初始化 HTTP 處理器
-	handler := handler.NewHandler(cartService)
+	cartHandler := handler.NewCartHandler(cartService)
+	orderHandler := handler.NewOrderHandler(orderService, cartService)
 
 	// 設置 Gin 路由
 	router := gin.Default()
@@ -98,15 +97,29 @@ func main() {
 		// 添加 auth middleware
 		api.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
 
+		// 購物車路由
 		cart := api.Group("/cart")
 		{
-			cart.GET("/", handler.GetCart)
-			cart.POST("/items", handler.AddToCart)
-			cart.DELETE("/items/:productId", handler.RemoveFromCart)
-			cart.PUT("/items", handler.UpdateQuantity)
-			cart.POST("/items/select", handler.SelectItems)
-			cart.DELETE("/", handler.ClearCart)
-			cart.POST("/checkout", handler.CreateOrder)
+			cart.GET("/", cartHandler.GetCart)
+			cart.POST("/items", cartHandler.AddToCart)
+			cart.DELETE("/items/:productId", cartHandler.RemoveFromCart)
+			cart.PUT("/items", cartHandler.UpdateQuantity)
+			cart.POST("/items/select", cartHandler.SelectItems)
+			cart.DELETE("/", cartHandler.ClearCart)
+			// TODO 訂單服務尚未完成服務
+			// cart.POST("/checkout", cartHandler.CreateOrder)
+		}
+
+		// 訂單路由
+		orders := api.Group("/orders")
+		{
+			orders.POST("/", orderHandler.CreateOrder)
+			orders.GET("/", orderHandler.ListOrders)
+			orders.GET("/:id", orderHandler.GetOrder)
+			orders.PUT("/:id", orderHandler.UpdateOrder)
+			orders.DELETE("/:id", orderHandler.DeleteOrder)
+			orders.POST("/:id/cancel", orderHandler.CancelOrder)
+			orders.GET("/status/:status", orderHandler.GetOrdersByStatus)
 		}
 	}
 
