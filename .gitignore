@@ -52,6 +52,7 @@ tmp/
 
 # Redis dump file
 dump.rdb
+frontend/node_modules/
 
 # Config files that might contain sensitive information
 config.yaml

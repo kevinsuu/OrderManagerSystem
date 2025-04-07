@@ -20,7 +20,7 @@ const SERVICES = [
         url: 'https://ordermanagersystem-notification-service.onrender.com/health'
     },
     {
-        name: 'Main Service',
+        name: 'Cart Service',
         url: 'https://ordermanagersystem.onrender.com/health'
     }
 ];
