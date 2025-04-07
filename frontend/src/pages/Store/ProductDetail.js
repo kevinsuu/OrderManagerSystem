@@ -17,7 +17,6 @@ import {
     Tabs,
     Tab,
     CardMedia,
-    Skeleton,
 } from '@mui/material';
 import {
     Add as AddIcon,

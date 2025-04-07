@@ -12,10 +12,6 @@ const SERVICES = [
         url: 'https://ordermanagersystem-product-service.onrender.com/health'
     },
     {
-        name: 'Order Service',
-        url: 'https://ordermanagersystem-order-service.onrender.com/health'
-    },
-    {
         name: 'Payment Service',
         url: 'https://ordermanagersystem-payment-service.onrender.com/health'
     },
