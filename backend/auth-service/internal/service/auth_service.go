@@ -40,6 +40,7 @@ type IAuthService interface {
 	GetAddressByID(ctx context.Context, addressID string) (*model.Address, error)
 	ResetPassword(ctx context.Context, tokenString, newPassword string) error
 	ForgetPassword(ctx context.Context, emailString, newPassword string) error
+	SetDefaultAddress(ctx context.Context, userID string, addressID string) (*model.Address, error)
 }
 
 // authService 實現 IAuthService 接口
@@ -254,6 +255,24 @@ func (s *authService) generateRefreshToken(user *model.User) (string, error) {
 
 // CreateAddress 創建地址
 func (s *authService) CreateAddress(ctx context.Context, userID string, req *model.AddressRequest) (*model.Address, error) {
+	// 如果新地址設為預設，將該用戶的所有其他地址設為非預設
+	if req.IsDefault {
+		addresses, err := s.userRepo.GetAddresses(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+
+		// 將所有地址的預設狀態設為false
+		for _, addr := range addresses {
+			if addr.IsDefault {
+				addr.IsDefault = false
+				if err := s.userRepo.UpdateAddress(ctx, &addr); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+
 	address := &model.Address{
 		ID:         uuid.New().String(),
 		UserID:     userID,
@@ -275,13 +294,77 @@ func (s *authService) CreateAddress(ctx context.Context, userID string, req *mod
 	return address, nil
 }
 
-// GetAddresses 獲取地址列表
+// GetAddresses 獲取地址列表（預設地址排在最前面）
 func (s *authService) GetAddresses(ctx context.Context, userID string) ([]model.Address, error) {
-	return s.userRepo.GetAddresses(ctx, userID)
+	addresses, err := s.userRepo.GetAddresses(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 排序：將預設地址放在最前面
+	if len(addresses) > 1 {
+		// 尋找預設地址並移至第一位
+		var defaultIndex int = -1
+		for i, addr := range addresses {
+			if addr.IsDefault {
+				defaultIndex = i
+				break
+			}
+		}
+
+		// 如果找到預設地址且不是第一個，則調整順序
+		if defaultIndex > 0 {
+			defaultAddr := addresses[defaultIndex]
+			// 將預設地址前的所有地址往後移一位
+			for i := defaultIndex; i > 0; i-- {
+				addresses[i] = addresses[i-1]
+			}
+			// 將預設地址放到第一位
+			addresses[0] = defaultAddr
+		}
+	}
+
+	return addresses, nil
 }
 
 // UpdateAddress 更新地址
 func (s *authService) UpdateAddress(ctx context.Context, userID string, addressID string, req *model.AddressRequest) (*model.Address, error) {
+	// 先獲取現有地址資訊
+	existingAddress, err := s.userRepo.GetAddressByID(ctx, addressID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 檢查地址是否存在
+	if existingAddress == nil {
+		return nil, fmt.Errorf("address not found")
+	}
+
+	// 檢查地址是否屬於該用戶
+	if existingAddress.UserID != userID {
+		return nil, fmt.Errorf("address does not belong to the user")
+	}
+
+	// 如果要將地址設為預設，且當前不是預設
+	if req.IsDefault && !existingAddress.IsDefault {
+		// 獲取該用戶的所有地址
+		addresses, err := s.userRepo.GetAddresses(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+
+		// 將所有其他地址設為非預設
+		for _, addr := range addresses {
+			if addr.IsDefault && addr.ID != addressID {
+				addr.IsDefault = false
+				if err := s.userRepo.UpdateAddress(ctx, &addr); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+
+	// 更新地址信息
 	address := &model.Address{
 		ID:         addressID,
 		UserID:     userID,
@@ -293,6 +376,13 @@ func (s *authService) UpdateAddress(ctx context.Context, userID string, addressI
 		PostalCode: req.PostalCode,
 		IsDefault:  req.IsDefault,
 		UpdatedAt:  time.Now(),
+	}
+
+	// 保留現有的創建時間
+	if existingAddress.CreatedAt.Unix() > 0 {
+		address.CreatedAt = existingAddress.CreatedAt
+	} else {
+		address.CreatedAt = time.Now()
 	}
 
 	if err := s.userRepo.UpdateAddress(ctx, address); err != nil {
@@ -404,4 +494,52 @@ func (s *authService) ResetPassword(ctx context.Context, tokenString, newPasswor
 	}
 
 	return nil
+}
+
+// SetDefaultAddress 設置預設地址
+func (s *authService) SetDefaultAddress(ctx context.Context, userID string, addressID string) (*model.Address, error) {
+	// 檢查地址是否存在
+	address, err := s.userRepo.GetAddressByID(ctx, addressID)
+	if err != nil {
+		return nil, err
+	}
+
+	if address == nil {
+		return nil, fmt.Errorf("address not found")
+	}
+
+	// 檢查地址是否屬於該用戶
+	if address.UserID != userID {
+		return nil, fmt.Errorf("address does not belong to the user")
+	}
+
+	// 如果已經是預設地址，則無需操作
+	if address.IsDefault {
+		return address, nil
+	}
+
+	// 獲取該用戶的所有地址
+	addresses, err := s.userRepo.GetAddresses(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 將所有其他地址設為非預設
+	for _, addr := range addresses {
+		if addr.IsDefault {
+			addr.IsDefault = false
+			if err := s.userRepo.UpdateAddress(ctx, &addr); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	// 將指定地址設為預設
+	address.IsDefault = true
+	address.UpdatedAt = time.Now()
+	if err := s.userRepo.UpdateAddress(ctx, address); err != nil {
+		return nil, err
+	}
+
+	return address, nil
 }

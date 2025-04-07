@@ -85,6 +85,7 @@ func main() {
 			secured.POST("/addresses", handler.CreateAddress)
 			secured.PUT("/addresses/:id", handler.UpdateAddress)
 			secured.DELETE("/addresses/:id", handler.DeleteAddress)
+			secured.PUT("/addresses/:id/default", handler.SetDefaultAddress)
 		}
 	}
 

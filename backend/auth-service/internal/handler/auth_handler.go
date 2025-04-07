@@ -363,3 +363,28 @@ func (h *Handler) UpdatePreference(c *gin.Context) {
 
 	c.JSON(http.StatusOK, pref)
 }
+
+// SetDefaultAddress 設置預設地址
+func (h *Handler) SetDefaultAddress(c *gin.Context) {
+	userID := c.GetString("userID")
+	addressID := c.Param("id")
+
+	address, err := h.authService.SetDefaultAddress(c.Request.Context(), userID, addressID)
+	if err != nil {
+		if err.Error() == "address not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "地址不存在"})
+			return
+		}
+		if err.Error() == "address does not belong to the user" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "沒有權限修改此地址"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "已成功設置為預設地址",
+		"address": address,
+	})
+}
