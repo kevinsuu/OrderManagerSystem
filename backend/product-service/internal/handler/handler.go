@@ -213,6 +213,15 @@ func (h *Handler) UpdateStock(c *gin.Context) {
 // SearchProducts 搜索產品
 func (h *Handler) SearchProducts(c *gin.Context) {
 	query := c.Query("query")
+	if query == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "搜索關鍵字不能為空",
+			"message": "請提供搜索關鍵字",
+		})
+		return
+	}
+
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
@@ -235,6 +244,7 @@ func (h *Handler) SearchProducts(c *gin.Context) {
 				"total":    0,
 				"page":     page,
 				"limit":    limit,
+				"query":    query,
 			},
 		})
 		return
@@ -248,6 +258,7 @@ func (h *Handler) SearchProducts(c *gin.Context) {
 			"total":    total,
 			"page":     page,
 			"limit":    limit,
+			"query":    query,
 		},
 	})
 }

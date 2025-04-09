@@ -173,8 +173,21 @@ func (r *productRepository) SearchProducts(ctx context.Context, query string, pa
 
 	var filteredProducts []model.Product
 	for _, product := range products {
+		// 檢查產品名稱或描述是否包含搜索關鍵字
 		if containsIgnoreCase(product.Name, query) || containsIgnoreCase(product.Description, query) {
 			filteredProducts = append(filteredProducts, product)
+			continue
+		}
+
+		// 檢查產品類別是否匹配
+		if product.Category != "" {
+			categoryRef := r.db.NewRef("categories").Child(product.Category)
+			var category model.Category
+			if err := categoryRef.Get(ctx, &category); err == nil && category.ID != "" {
+				if containsIgnoreCase(category.Name, query) {
+					filteredProducts = append(filteredProducts, product)
+				}
+			}
 		}
 	}
 
@@ -183,6 +196,9 @@ func (r *productRepository) SearchProducts(ctx context.Context, query string, pa
 	end := start + limit
 	if end > len(filteredProducts) {
 		end = len(filteredProducts)
+	}
+	if start >= len(filteredProducts) {
+		return []model.Product{}, total, nil
 	}
 
 	return filteredProducts[start:end], total, nil
