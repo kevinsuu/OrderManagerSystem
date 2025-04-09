@@ -69,22 +69,7 @@ const Navbar = () => {
                         訂單管理系統
                     </Typography>
 
-                    <Box sx={{ flexGrow: 1, display: 'flex' }}>
-                        <Button
-                            component={Link}
-                            to="/products"
-                            sx={{ my: 2, color: 'white', display: 'block' }}
-                        >
-                            所有商品
-                        </Button>
-                        <Button
-                            component={Link}
-                            to="/categories"
-                            sx={{ my: 2, color: 'white', display: 'block' }}
-                        >
-                            商品分類
-                        </Button>
-                    </Box>
+
 
                     <Box sx={{ flexGrow: 0, display: 'flex', alignItems: 'center', gap: 2 }}>
                         <IconButton

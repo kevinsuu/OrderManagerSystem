@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
     AppBar,
     Box,
@@ -12,16 +12,21 @@ import {
     Menu,
     MenuItem,
     Avatar,
+    Paper,
+    InputBase,
 } from '@mui/material';
 import {
     ShoppingCart as ShoppingCartIcon,
     Person as PersonIcon,
+    Search as SearchIcon,
 } from '@mui/icons-material';
 
 const StoreLayout = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [anchorEl, setAnchorEl] = useState(null);
     const [user, setUser] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         // 檢查是否已登入
@@ -61,6 +66,19 @@ const StoreLayout = () => {
         };
     }, []);
 
+    // 從 URL 獲取搜尋詞
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const query = params.get('query');
+        const isHomePage = location.pathname === '/' || location.pathname === '/store';
+
+        if (query) {
+            setSearchTerm(decodeURIComponent(query));
+        } else if (isHomePage) {
+            setSearchTerm('');
+        }
+    }, [location]);
+
     const handleMenuOpen = (event) => {
         setAnchorEl(event.currentTarget);
     };
@@ -79,25 +97,63 @@ const StoreLayout = () => {
         navigate('/');
     };
 
+    // 統一的搜尋處理函數
+    const executeSearch = (searchValue) => {
+        if (searchValue.trim()) {
+            navigate(`/store/products/search?query=${encodeURIComponent(searchValue.trim())}&page=1&limit=10`);
+        }
+    };
+
+    const handleSearch = (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            executeSearch(searchTerm);
+        }
+    };
+
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
             <AppBar position="fixed">
-                <Toolbar>
+                <Toolbar sx={{ gap: 2 }}>
                     <Typography
                         variant="h6"
                         component="div"
-                        sx={{ flexGrow: 1, cursor: 'pointer' }}
+                        sx={{ cursor: 'pointer' }}
                         onClick={() => navigate('/')}
                     >
                         訂單管理系統
                     </Typography>
-                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                        <Button color="inherit" onClick={() => navigate('/store/products')}>
-                            所有商品
-                        </Button>
-                        <Button color="inherit" onClick={() => navigate('/store/categories')}>
-                            商品分類
-                        </Button>
+
+                    {/* 搜尋欄 */}
+                    <Paper
+                        component="form"
+                        onSubmit={(e) => e.preventDefault()}
+                        sx={{
+                            p: '2px 4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            width: 400,
+                            bgcolor: 'white',
+                            borderRadius: 2,
+                        }}
+                    >
+                        <InputBase
+                            sx={{ ml: 1, flex: 1 }}
+                            placeholder="搜尋商品..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onKeyPress={handleSearch}
+                        />
+                        <IconButton
+                            sx={{ p: '10px' }}
+                            onClick={() => executeSearch(searchTerm)}
+                        >
+                            <SearchIcon />
+                        </IconButton>
+                    </Paper>
+
+                    {/* 右側按鈕 */}
+                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', ml: 'auto' }}>
                         <IconButton color="inherit" onClick={() => navigate('/store/cart')}>
                             <Badge badgeContent={0} color="error">
                                 <ShoppingCartIcon />

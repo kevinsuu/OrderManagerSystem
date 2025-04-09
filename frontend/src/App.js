@@ -7,7 +7,7 @@ import { useHealthCheck } from './utils/healthCheck';
 import { Snackbar, Alert } from '@mui/material';
 
 // Layouts
-import StoreLayout from './layouts/Store/StoreLayout';
+import StoreLayout from './layouts/StoreLayout';
 import AdminLayout from './layouts/Admin/AdminLayout';
 
 // Store Pages
@@ -18,6 +18,8 @@ import ForgotPassword from './pages/Store/ForgotPassword';
 import Profile from './pages/Store/Profile';
 import Cart from './pages/Store/Cart';
 import ProductDetail from './pages/Store/ProductDetail';
+import Products from './pages/Store/Products';
+import ProductSearchPage from './pages/Store/ProductSearchPage';
 
 // Admin Pages
 import AdminLogin from './pages/Admin/Login';
@@ -73,7 +75,11 @@ function App() {
                                 }
                             />
                             <Route path="store" element={<Home />} />
-                            <Route path="store/product/:id" element={<ProductDetail />} />
+                            <Route path="store/products">
+                                <Route index element={<Products />} />
+                                <Route path="search" element={<ProductSearchPage />} />
+                                <Route path=":id" element={<ProductDetail />} />
+                            </Route>
                             <Route path="store/orders" element={
                                 <UserProtectedRoute>
                                     <div>訂單記錄頁面</div>

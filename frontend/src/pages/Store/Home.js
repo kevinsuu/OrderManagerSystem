@@ -84,7 +84,8 @@ const StorePage = () => {
     const navigate = useNavigate();
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [latestProduct, setLatestProduct] = useState(null);
+    const [currentProductIndex, setCurrentProductIndex] = useState(0);
+    const [featuredProducts, setFeaturedProducts] = useState([]);
 
     useEffect(() => {
         const fetchProducts = async () => {
@@ -106,13 +107,10 @@ const StorePage = () => {
                 );
 
                 setProducts(sortedProducts);
-                // 設置最新商品
-                if (sortedProducts.length > 0) {
-                    setLatestProduct(sortedProducts[0]);
-                }
+                // 設置輪播商品（取前5個）
+                setFeaturedProducts(sortedProducts.slice(0, 5));
             } catch (error) {
                 console.error('Error fetching products:', error);
-                // 如果是 401 未授權錯誤，可以導向登入頁面
                 if (error.response?.status === 401) {
                     navigate('/login');
                 }
@@ -124,10 +122,25 @@ const StorePage = () => {
         fetchProducts();
     }, [navigate]);
 
+    // 自動輪播
+    useEffect(() => {
+        if (featuredProducts.length === 0) return;
+
+        const timer = setInterval(() => {
+            setCurrentProductIndex((prevIndex) =>
+                prevIndex === featuredProducts.length - 1 ? 0 : prevIndex + 1
+            );
+        }, 5000); // 每5秒切換一次
+
+        return () => clearInterval(timer);
+    }, [featuredProducts]);
+
+    const currentProduct = featuredProducts[currentProductIndex];
+
     return (
         <Container maxWidth="xl">
             {/* 動態橫幅廣告 */}
-            {latestProduct && (
+            {currentProduct && (
                 <Paper
                     sx={{
                         position: 'relative',
@@ -136,12 +149,13 @@ const StorePage = () => {
                         backgroundSize: 'cover',
                         backgroundRepeat: 'no-repeat',
                         backgroundPosition: 'center',
-                        backgroundImage: `url(${latestProduct.images[0]?.url || '/images/default-banner.jpg'})`,
+                        backgroundImage: `url(${currentProduct.images[0]?.url || '/images/default-banner.jpg'})`,
                         height: 500,
                         display: 'flex',
                         alignItems: 'center',
                         borderRadius: '16px',
                         overflow: 'hidden',
+                        transition: 'background-image 0.5s ease-in-out',
                     }}
                 >
                     <Box
@@ -172,7 +186,7 @@ const StorePage = () => {
                                     textShadow: '0 2px 4px rgba(0,0,0,0.3)',
                                 }}
                             >
-                                {latestProduct.name}
+                                {currentProduct.name}
                             </Typography>
                             <Typography
                                 variant="h5"
@@ -183,12 +197,12 @@ const StorePage = () => {
                                     textShadow: '0 1px 2px rgba(0,0,0,0.3)',
                                 }}
                             >
-                                {latestProduct.description}
+                                {currentProduct.description}
                             </Typography>
                             <Button
                                 variant="contained"
                                 size="large"
-                                onClick={() => navigate(`/store/product/${latestProduct.id}`)}
+                                onClick={() => navigate(`/store/products/${currentProduct.id}`)}
                                 sx={{
                                     px: 4,
                                     py: 1.5,
@@ -205,6 +219,37 @@ const StorePage = () => {
                         </Box>
                     </Container>
                 </Paper>
+            )}
+
+            {/* 輪播指示器 */}
+            {featuredProducts.length > 0 && (
+                <Box
+                    sx={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: 1,
+                        mt: -4,
+                        mb: 4,
+                    }}
+                >
+                    {featuredProducts.map((_, index) => (
+                        <Box
+                            key={index}
+                            onClick={() => setCurrentProductIndex(index)}
+                            sx={{
+                                width: 12,
+                                height: 12,
+                                borderRadius: '50%',
+                                backgroundColor: index === currentProductIndex ? 'primary.main' : 'grey.300',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                    transform: 'scale(1.2)',
+                                },
+                            }}
+                        />
+                    ))}
+                </Box>
             )}
 
             {/* 商品列表 */}
@@ -227,7 +272,7 @@ const StorePage = () => {
                     <Grid container spacing={4}>
                         {products.map((product) => (
                             <Grid item key={product.id} xs={12} sm={6} md={4} lg={3}>
-                                <StyledCard onClick={() => navigate(`/store/product/${product.id}`)}>
+                                <StyledCard onClick={() => navigate(`/store/products/${product.id}`)}>
                                     <ProductImage
                                         image={product.images[0]?.url || 'default-image-url.jpg'}
                                         title={product.name}

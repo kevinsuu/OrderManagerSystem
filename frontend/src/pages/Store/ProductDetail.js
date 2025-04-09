@@ -118,6 +118,11 @@ const ProductDetail = () => {
         setAlertOpen(true);
     }, []);
 
+    // 頁面載入時滾動到頂部
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, [id]);
+
     // 獲取商品詳情
     useEffect(() => {
         const fetchProductDetail = async () => {
@@ -313,7 +318,7 @@ const ProductDetail = () => {
                         首頁
                     </Link>
                     <Link
-                        to="/store"
+                        to="/store/products"
                         style={{ textDecoration: 'none', color: 'inherit' }}
                     >
                         商店

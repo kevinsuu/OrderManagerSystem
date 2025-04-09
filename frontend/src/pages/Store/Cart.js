@@ -358,7 +358,7 @@ const Cart = () => {
                             <Button
                                 variant="contained"
                                 sx={{ mt: 2 }}
-                                onClick={() => navigate('/products')}
+                                onClick={() => navigate('/store/products')}
                             >
                                 繼續購物
                             </Button>
