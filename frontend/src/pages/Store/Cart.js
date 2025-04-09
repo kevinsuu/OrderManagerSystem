@@ -23,7 +23,6 @@ import {
     LocalShipping as ShippingIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
 import debounce from 'lodash/debounce';
 import { createAuthAxios } from '../../utils/auth';
 
@@ -62,30 +61,7 @@ const Cart = () => {
         showErrorMessage(error.response?.data?.error || '操作失敗');
     }, [showErrorMessage]);
 
-    // 添加一個單獨的函數用於獲取購物車數據
-    const fetchCartData = useCallback(async () => {
-        try {
-            console.log('開始獲取購物車...');
-            const response = await authAxios.get(`${CART_SERVICE_URL}/api/v1/cart/`);
 
-            const data = response.data;
-            console.log('成功獲取購物車數據:', data);
-
-            if (data.items) {
-                setCartItems(data.items.map(item => ({
-                    id: item.ProductID,
-                    name: item.Name,
-                    price: item.Price,
-                    quantity: item.Quantity,
-                    image: item.Image || "https://via.placeholder.com/150",
-                    stock: item.StockCount
-                })));
-            }
-        } catch (error) {
-            console.error('獲取購物車失敗:', error);
-            showErrorMessage(error.message);
-        }
-    }, [authAxios, showErrorMessage]);
 
     useEffect(() => {
         let isMounted = true;
@@ -213,21 +189,6 @@ const Cart = () => {
         navigate('/checkout');
     };
 
-    // 添加測試商品函數
-    const handleAddTestItem = async () => {
-        try {
-            await authAxios.post(`${CART_SERVICE_URL}/api/v1/cart/items`, {
-                productId: "-OLlQJ2VgZvUgeVH75Vc",
-                quantity: 1
-            });
-            await fetchCartData(); // 使用我們定義的獨立函數來獲取購物車數據
-            showSuccessMessage('測試商品已添加到購物車');
-        } catch (error) {
-            console.error('添加測試商品失敗:', error);
-            handleError(error);
-        }
-    };
-
     // 立即更新的函數
     const updateQuantityImmediately = useCallback(async (id, quantity) => {
         try {
@@ -262,14 +223,7 @@ const Cart = () => {
                     <CartIcon /> 購物車
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 2 }}>
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={handleAddTestItem}
-                        startIcon={<AddShoppingCartIcon />}
-                    >
-                        新增測試商品
-                    </Button>
+
                     {cartItems.length > 0 && (
                         <Button
                             variant="outlined"
