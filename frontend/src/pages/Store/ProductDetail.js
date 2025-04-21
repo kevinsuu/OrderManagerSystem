@@ -118,6 +118,20 @@ const ProductDetail = () => {
         setAlertOpen(true);
     }, []);
 
+    // 檢查商品是否在收藏列表中
+    const checkIfFavorite = useCallback(async (productId) => {
+        try {
+            const response = await authAxios.get(`${process.env.REACT_APP_USER_SERVICE_URL}/api/v1/wishlist/`);
+            if (response.data && response.data.success && response.data.data && response.data.data.wishlist) {
+                const wishlistItems = response.data.data.wishlist;
+                const isFav = wishlistItems.some(item => item.productId === productId);
+                setIsFavorite(isFav);
+            }
+        } catch (err) {
+            console.error('檢查收藏狀態失敗:', err);
+        }
+    }, [authAxios]);
+
     // 頁面載入時滾動到頂部
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -136,9 +150,6 @@ const ProductDetail = () => {
                 } else {
                     setProduct(response.data);
                 }
-
-                // 檢查該商品是否在收藏列表中
-                checkIfFavorite(id);
             } catch (err) {
                 console.error('獲取商品詳情失敗:', err);
                 setError('無法加載商品詳情，請稍後再試');
@@ -151,27 +162,21 @@ const ProductDetail = () => {
         fetchProductDetail();
     }, [id, authAxios, showErrorMessage]);
 
-    // 檢查商品是否在收藏列表中
-    const checkIfFavorite = useCallback(async (productId) => {
-        try {
-            const response = await authAxios.get(`${CART_SERVICE_URL}/api/v1/wishlist`);
-            if (response.data && Array.isArray(response.data.items)) {
-                const isFav = response.data.items.some(item => item.ProductID === productId);
-                setIsFavorite(isFav);
-            }
-        } catch (err) {
-            console.error('檢查收藏狀態失敗:', err);
+    // 檢查收藏狀態
+    useEffect(() => {
+        if (id) {
+            checkIfFavorite(id);
         }
-    }, [authAxios]);
+    }, [id, checkIfFavorite]);
 
     // 處理收藏切換
     const handleToggleFavorite = async () => {
         try {
             if (isFavorite) {
-                await authAxios.delete(`${CART_SERVICE_URL}/api/v1/wishlist/items/${id}`);
+                await authAxios.delete(`${process.env.REACT_APP_USER_SERVICE_URL}/api/v1/wishlist/${id}`);
                 showSuccessMessage('商品已從收藏列表移除');
             } else {
-                await authAxios.post(`${CART_SERVICE_URL}/api/v1/wishlist/items`, {
+                await authAxios.post(`${process.env.REACT_APP_USER_SERVICE_URL}/api/v1/wishlist/`, {
                     productId: id,
                 });
                 showSuccessMessage('商品已加入收藏');

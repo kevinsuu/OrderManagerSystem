@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Container,
     Grid,
@@ -12,12 +12,15 @@ import {
     Paper,
     IconButton,
     CircularProgress,
+    Snackbar,
+    Alert,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import FavoriteIcon from '@mui/icons-material/Favorite';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { createAuthAxios } from '../../utils/auth';
 
 const StyledCard = styled(Card)(({ theme }) => ({
     height: '100%',
@@ -79,25 +82,58 @@ const LoadingContainer = styled(Box)({
 
 // 添加環境變數
 const PRODUCT_SERVICE_URL = process.env.REACT_APP_PRODUCT_SERVICE_URL || 'https://ordermanagersystem-product-service.onrender.com';
-
+const CART_SERVICE_URL = process.env.REACT_APP_CART_SERVICE_URL || 'https://ordermanagersystem.onrender.com';
+const USER_SERVICE_URL = process.env.REACT_APP_USER_SERVICE_URL || 'https://ordermanagersystem.onrender.com';
 const StorePage = () => {
     const navigate = useNavigate();
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [currentProductIndex, setCurrentProductIndex] = useState(0);
     const [featuredProducts, setFeaturedProducts] = useState([]);
+    const [favorites, setFavorites] = useState({});
+    const [alert, setAlert] = useState({ open: false, message: '', severity: 'success' });
+
+    // 創建授權axios客戶端
+    const authAxios = React.useMemo(() => createAuthAxios(navigate), [navigate]);
+
+    // 顯示提示消息
+    const showAlert = (message, severity = 'success') => {
+        setAlert({
+            open: true,
+            message,
+            severity
+        });
+    };
+
+    // 關閉提示
+    const handleCloseAlert = () => {
+        setAlert({ ...alert, open: false });
+    };
+
+    // 獲取收藏清單
+    const fetchWishlist = useCallback(async () => {
+        try {
+            const response = await authAxios.get(`${USER_SERVICE_URL}/api/v1/wishlist/`);
+            if (response.data && response.data.success && response.data.data && response.data.data.wishlist) {
+                const wishlistItems = response.data.data.wishlist;
+                const favoritesMap = {};
+                wishlistItems.forEach(item => {
+                    favoritesMap[item.productId] = true;
+                });
+                setFavorites(favoritesMap);
+            }
+        } catch (error) {
+            console.error('Error fetching wishlist:', error);
+        }
+    }, [authAxios]);
 
     useEffect(() => {
         const fetchProducts = async () => {
             try {
-                const token = localStorage.getItem('token');
-                const response = await axios.get(`${PRODUCT_SERVICE_URL}/api/v1/products/`, {
+                const response = await authAxios.get(`${PRODUCT_SERVICE_URL}/api/v1/products/`, {
                     params: {
                         page: 1,
                         limit: 10
-                    },
-                    headers: {
-                        'Authorization': `Bearer ${token}`
                     }
                 });
 
@@ -109,6 +145,9 @@ const StorePage = () => {
                 setProducts(sortedProducts);
                 // 設置輪播商品（取前5個）
                 setFeaturedProducts(sortedProducts.slice(0, 5));
+
+                // 獲取收藏狀態
+                fetchWishlist();
             } catch (error) {
                 console.error('Error fetching products:', error);
                 if (error.response?.status === 401) {
@@ -120,7 +159,47 @@ const StorePage = () => {
         };
 
         fetchProducts();
-    }, [navigate]);
+    }, [navigate, authAxios, fetchWishlist]);
+
+    // 添加到收藏
+    const handleToggleFavorite = async (e, productId) => {
+        e.stopPropagation(); // 阻止事件冒泡到卡片點擊事件
+
+        try {
+            if (favorites[productId]) {
+                // 從收藏中移除
+                await authAxios.delete(`${USER_SERVICE_URL}/api/v1/wishlist/${productId}`);
+                setFavorites({ ...favorites, [productId]: false });
+                showAlert('已從收藏清單移除');
+            } else {
+                // 添加到收藏
+                await authAxios.post(`${USER_SERVICE_URL}/api/v1/wishlist/`, {
+                    productId: productId
+                });
+                setFavorites({ ...favorites, [productId]: true });
+                showAlert('已加入收藏');
+            }
+        } catch (error) {
+            console.error('Error toggling favorite:', error);
+            showAlert('操作失敗，請稍後再試', 'error');
+        }
+    };
+
+    // 添加到購物車
+    const handleAddToCart = async (e, productId) => {
+        e.stopPropagation(); // 阻止事件冒泡到卡片點擊事件
+
+        try {
+            await authAxios.post(`${CART_SERVICE_URL}/api/v1/cart/items`, {
+                productId: productId,
+                quantity: 1
+            });
+            showAlert('已加入購物車');
+        } catch (error) {
+            console.error('Error adding to cart:', error);
+            showAlert('加入購物車失敗', 'error');
+        }
+    };
 
     // 自動輪播
     useEffect(() => {
@@ -283,10 +362,20 @@ const StorePage = () => {
                                             </DiscountBadge>
                                         )}
                                         <ProductActions>
-                                            <IconButton size="small">
-                                                <FavoriteIcon fontSize="small" />
+                                            <IconButton
+                                                size="small"
+                                                color={favorites[product.id] ? "error" : "default"}
+                                                onClick={(e) => handleToggleFavorite(e, product.id)}
+                                            >
+                                                {favorites[product.id] ?
+                                                    <FavoriteIcon fontSize="small" /> :
+                                                    <FavoriteBorderIcon fontSize="small" />
+                                                }
                                             </IconButton>
-                                            <IconButton size="small">
+                                            <IconButton
+                                                size="small"
+                                                onClick={(e) => handleAddToCart(e, product.id)}
+                                            >
                                                 <ShoppingCartIcon fontSize="small" />
                                             </IconButton>
                                         </ProductActions>
@@ -325,6 +414,18 @@ const StorePage = () => {
                     </Grid>
                 )}
             </Box>
+
+            {/* 提示信息 */}
+            <Snackbar
+                open={alert.open}
+                autoHideDuration={3000}
+                onClose={handleCloseAlert}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+                <Alert onClose={handleCloseAlert} severity={alert.severity}>
+                    {alert.message}
+                </Alert>
+            </Snackbar>
         </Container>
     );
 };

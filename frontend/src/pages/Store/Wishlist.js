@@ -51,7 +51,7 @@ const Wishlist = () => {
             params.set('limit', ITEMS_PER_PAGE.toString());
 
             // 實際 API 呼叫
-            const response = await authAxios.get(`${USER_API_URL}/api/v1/wishlist?${params.toString()}`);
+            const response = await authAxios.get(`${process.env.REACT_APP_USER_SERVICE_URL}/api/v1/wishlist/?${params.toString()}`);
 
             console.log('收藏清單API回應:', response.data);
 
@@ -172,7 +172,7 @@ const Wishlist = () => {
                                 <CardMedia
                                     component="img"
                                     height="200"
-                                    image={item.product.images?.[0]?.url || '/placeholder.png'}
+                                    image={item.product.images?.[0] || '/placeholder.png'}
                                     alt={item.product.name}
                                     sx={{ objectFit: 'contain', p: 2, cursor: 'pointer' }}
                                     onClick={() => navigate(`/store/products/${item.product.id || item.product._id}`)}

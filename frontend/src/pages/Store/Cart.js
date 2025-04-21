@@ -14,6 +14,8 @@ import {
     Alert,
     Collapse,
     Fade,
+    Skeleton,
+    Stack,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -25,12 +27,26 @@ import {
 import { useNavigate } from 'react-router-dom';
 import debounce from 'lodash/debounce';
 import { createAuthAxios } from '../../utils/auth';
+import { keyframes } from '@mui/system';
 
 const CART_SERVICE_URL = 'https://ordermanagersystem.onrender.com';
+
+// 自定義動畫效果
+const bounceAnimation = keyframes`
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+`;
+
+
 
 const Cart = () => {
     const navigate = useNavigate();
     const [cartItems, setCartItems] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [showAlert, setShowAlert] = useState(false);
     const [alertMessage, setAlertMessage] = useState('');
     const [alertSeverity, setAlertSeverity] = useState('success');
@@ -61,8 +77,6 @@ const Cart = () => {
         showErrorMessage(error.response?.data?.error || '操作失敗');
     }, [showErrorMessage]);
 
-
-
     useEffect(() => {
         let isMounted = true;
         const controller = new AbortController();
@@ -70,6 +84,8 @@ const Cart = () => {
         const getCartData = async () => {
             try {
                 console.log('開始獲取購物車...');
+                setLoading(true);
+
                 const response = await authAxios.get(`${CART_SERVICE_URL}/api/v1/cart/`, {
                     signal: controller.signal
                 });
@@ -89,11 +105,13 @@ const Cart = () => {
                         stock: item.StockCount
                     })));
                 }
+                setLoading(false);
             } catch (error) {
                 if (error.name === 'AbortError' || !isMounted) return;
 
                 console.error('獲取購物車失敗:', error);
                 showErrorMessage(error.message);
+                setLoading(false);
             }
         };
 
@@ -211,6 +229,33 @@ const Cart = () => {
         };
     }, [pendingUpdates, updateQuantityImmediately]);
 
+    // 購物車骨架屏佔位元素
+    const CartLoadingSkeleton = () => (
+        <Box sx={{
+            textAlign: 'center',
+            py: 8,
+            position: 'relative',
+            overflow: 'hidden',
+            height: '300px',
+            backgroundColor: '#f9f9f9',
+            borderRadius: 2
+        }}>
+            {/* 主要購物車圖標 */}
+            <Box sx={{
+                animation: `${bounceAnimation} 2s infinite ease-in-out`,
+                display: 'inline-block',
+                mb: 2
+            }}>
+                <CartIcon sx={{ fontSize: 80, color: '#1976d2' }} />
+            </Box>
+
+            <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
+                正在載入購物車資訊...
+            </Typography>
+
+        </Box>
+    );
+
     return (
         <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
             <Box sx={{
@@ -224,7 +269,7 @@ const Cart = () => {
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 2 }}>
 
-                    {cartItems.length > 0 && (
+                    {cartItems.length > 0 && !loading && (
                         <Button
                             variant="outlined"
                             color="error"
@@ -249,7 +294,9 @@ const Cart = () => {
                         </Alert>
                     </Collapse>
 
-                    {cartItems.length > 0 ? (
+                    {loading ? (
+                        <CartLoadingSkeleton />
+                    ) : cartItems.length > 0 ? (
                         cartItems.map((item) => (
                             <Fade in={true} key={item.id}>
                                 <Card sx={{ mb: 2, position: 'relative' }}>
@@ -371,47 +418,60 @@ const Cart = () => {
                         <Typography variant="h6" gutterBottom>
                             訂單摘要
                         </Typography>
-                        <Box sx={{ my: 2 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                <Typography>商品總計</Typography>
-                                <Typography>NT$ {total}</Typography>
-                            </Box>
-                            <Box sx={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                mb: 1,
-                                alignItems: 'center'
-                            }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <ShippingIcon fontSize="small" />
-                                    <Typography>運費</Typography>
+
+                        {loading ? (
+                            <Stack spacing={2}>
+                                <Skeleton variant="text" width="100%" height={24} />
+                                <Skeleton variant="text" width="100%" height={24} />
+                                <Divider />
+                                <Skeleton variant="text" width="100%" height={32} />
+                                <Skeleton variant="rectangular" width="100%" height={40} />
+                            </Stack>
+                        ) : (
+                            <>
+                                <Box sx={{ my: 2 }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                        <Typography>商品總計</Typography>
+                                        <Typography>NT$ {total}</Typography>
+                                    </Box>
+                                    <Box sx={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        mb: 1,
+                                        alignItems: 'center'
+                                    }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <ShippingIcon fontSize="small" />
+                                            <Typography>運費</Typography>
+                                        </Box>
+                                        <Typography>
+                                            {shippingFee === 0 ? '免運費' : `NT$ ${shippingFee}`}
+                                        </Typography>
+                                    </Box>
+                                    {total < 2000 && (
+                                        <Typography variant="caption" color="primary">
+                                            還差 NT$ {2000 - total} 即可享有免運優惠
+                                        </Typography>
+                                    )}
                                 </Box>
-                                <Typography>
-                                    {shippingFee === 0 ? '免運費' : `NT$ ${shippingFee}`}
-                                </Typography>
-                            </Box>
-                            {total < 2000 && (
-                                <Typography variant="caption" color="primary">
-                                    還差 NT$ {2000 - total} 即可享有免運優惠
-                                </Typography>
-                            )}
-                        </Box>
-                        <Divider sx={{ my: 2 }} />
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                            <Typography variant="h6">總計</Typography>
-                            <Typography variant="h6" color="primary">
-                                NT$ {total + shippingFee}
-                            </Typography>
-                        </Box>
-                        <Button
-                            variant="contained"
-                            fullWidth
-                            size="large"
-                            onClick={handleCheckout}
-                            disabled={cartItems.length === 0}
-                        >
-                            前往結帳
-                        </Button>
+                                <Divider sx={{ my: 2 }} />
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                                    <Typography variant="h6">總計</Typography>
+                                    <Typography variant="h6" color="primary">
+                                        NT$ {total + shippingFee}
+                                    </Typography>
+                                </Box>
+                                <Button
+                                    variant="contained"
+                                    fullWidth
+                                    size="large"
+                                    onClick={handleCheckout}
+                                    disabled={cartItems.length === 0}
+                                >
+                                    前往結帳
+                                </Button>
+                            </>
+                        )}
                     </Paper>
                 </Grid>
             </Grid>
