@@ -54,6 +54,7 @@ func main() {
 	// 初始化倉庫
 	cartRepo := repository.NewCartRepository(fb.Database)
 	orderRepo := repository.NewOrderRepository(fb.Database)
+	wishlistRepo := repository.NewWishlistRepository(fb.Database)
 
 	// 初始化客戶端
 	productClient := client.NewProductClient(cfg.ProductService.BaseURL)
@@ -64,10 +65,12 @@ func main() {
 	cartService := service.NewCartService(cartRepo, productClient, orderClient, &service.CartServiceConfig{
 		ProductServiceBaseURL: cfg.ProductService.BaseURL,
 	})
+	wishlistService := service.NewWishlistService(wishlistRepo, productClient)
 
 	// 初始化 HTTP 處理器
 	cartHandler := handler.NewCartHandler(cartService)
 	orderHandler := handler.NewOrderHandler(orderService, cartService)
+	wishlistHandler := handler.NewWishlistHandler(wishlistService)
 
 	// 設置 Gin 路由
 	router := gin.Default()
@@ -120,6 +123,14 @@ func main() {
 			orders.DELETE("/:id", orderHandler.DeleteOrder)
 			orders.POST("/:id/cancel", orderHandler.CancelOrder)
 			orders.GET("/status/:status", orderHandler.GetOrdersByStatus)
+		}
+
+		// 收藏清單路由
+		wishlist := api.Group("/wishlist")
+		{
+			wishlist.GET("/", wishlistHandler.GetWishlist)
+			wishlist.POST("/", wishlistHandler.AddToWishlist)
+			wishlist.DELETE("/:productId", wishlistHandler.RemoveFromWishlist)
 		}
 	}
 

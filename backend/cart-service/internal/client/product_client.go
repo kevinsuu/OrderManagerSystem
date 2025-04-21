@@ -6,8 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
+
+	"github.com/kevinsuu/OrderManagerSystem/cart-service/internal/model"
 )
 
 // ContextKey 自定義 context key 類型
@@ -18,9 +21,11 @@ const (
 	TokenKey ContextKey = "token"
 )
 
+// ProductClient 提供與產品服務交互的功能
 type ProductClient interface {
 	GetProduct(ctx context.Context, productID string) (*ProductInfo, error)
 	GetProductImageAsBase64(ctx context.Context, imageURL string) (string, error)
+	GetProductById(ctx context.Context, productId string) (*model.ProductInfo, error)
 }
 
 type ProductImage struct {
@@ -47,12 +52,13 @@ type ProductInfo struct {
 	UpdatedAt   string         `json:"updatedAt"`
 }
 
+// productClient 實現 ProductClient 接口
 type productClient struct {
 	baseURL    string
 	httpClient *http.Client
 }
 
-// NewProductClient 創建新的 ProductClient 實例
+// NewProductClient 創建一個新的產品客戶端
 func NewProductClient(baseURL string) ProductClient {
 	// 如果沒有提供 baseURL，使用默認值
 	if baseURL == "" {
@@ -183,4 +189,101 @@ func (c *productClient) GetProductImageAsBase64(ctx context.Context, imageURL st
 
 	log.Printf("Successfully converted image to base64 (length: %d)", len(base64Data))
 	return base64Data, nil
+}
+
+// GetProductById 通過 ID 獲取產品詳細資訊
+func (c *productClient) GetProductById(ctx context.Context, productId string) (*model.ProductInfo, error) {
+	url := fmt.Sprintf("%s/api/v1/products/%s", c.baseURL, productId)
+
+	log.Printf("Requesting product details from URL: %s", url)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// 添加授權頭
+	if token := ctx.Value(TokenKey); token != nil {
+		req.Header.Set("Authorization", fmt.Sprintf("%v", token))
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// 讀取並記錄響應
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	log.Printf("Product service response status: %d", resp.StatusCode)
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("error response from product service: %s", resp.Status)
+	}
+
+	// 從響應中提取產品數據
+	// 先解析整體響應結構
+	var response map[string]interface{}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	// 檢查success字段
+	success, ok := response["success"].(bool)
+	if !ok || !success {
+		return nil, fmt.Errorf("product service returned unsuccessful response")
+	}
+
+	// 提取data部分
+	data, ok := response["data"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("no data field in response")
+	}
+
+	// 創建我們簡化的ProductInfo結構
+	productInfo := &model.ProductInfo{
+		ID:    productId,
+		Name:  "",
+		Price: 0,
+	}
+
+	// 嘗試獲取產品名稱
+	if name, ok := data["name"].(string); ok {
+		productInfo.Name = name
+	}
+
+	// 嘗試獲取產品價格
+	if price, ok := data["price"].(float64); ok {
+		productInfo.Price = price
+	}
+
+	// 嘗試獲取圖片列表
+	if images, ok := data["images"].([]interface{}); ok && len(images) > 0 {
+		// 將圖片URL轉換為字符串數組
+		imageUrls := make([]string, 0, len(images))
+		for _, img := range images {
+			if imgMap, ok := img.(map[string]interface{}); ok {
+				if url, ok := imgMap["url"].(string); ok && url != "" {
+					imageUrls = append(imageUrls, url)
+				}
+			}
+		}
+		productInfo.Images = imageUrls
+	}
+
+	// 嘗試獲取其他可能有用的字段
+	if createdAt, ok := data["createdAt"].(string); ok {
+		productInfo.CreatedAt = createdAt
+	}
+
+	if updatedAt, ok := data["updatedAt"].(string); ok {
+		productInfo.UpdatedAt = updatedAt
+	}
+
+	log.Printf("Successfully parsed product info: %+v", productInfo)
+	return productInfo, nil
 }
