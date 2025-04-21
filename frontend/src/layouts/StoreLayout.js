@@ -154,7 +154,7 @@ const StoreLayout = () => {
 
                     {/* 右側按鈕 */}
                     <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', ml: 'auto' }}>
-                        <IconButton color="inherit" onClick={() => navigate('/store/cart')}>
+                        <IconButton color="inherit" onClick={() => navigate('/cart')}>
                             <Badge badgeContent={0} color="error">
                                 <ShoppingCartIcon />
                             </Badge>
@@ -185,19 +185,19 @@ const StoreLayout = () => {
                                 >
                                     <MenuItem onClick={() => {
                                         handleMenuClose();
-                                        navigate('/store/profile');
+                                        navigate('/profile');
                                     }}>
                                         個人資料
                                     </MenuItem>
                                     <MenuItem onClick={() => {
                                         handleMenuClose();
-                                        navigate('/store/orders');
+                                        navigate('/orders');
                                     }}>
                                         訂單記錄
                                     </MenuItem>
                                     <MenuItem onClick={() => {
                                         handleMenuClose();
-                                        navigate('/store/wishlist');
+                                        navigate('/wishlist');
                                     }}>
                                         收藏清單
                                     </MenuItem>

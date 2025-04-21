@@ -20,6 +20,8 @@ import Cart from './pages/Store/Cart';
 import ProductDetail from './pages/Store/ProductDetail';
 import Products from './pages/Store/Products';
 import ProductSearchPage from './pages/Store/ProductSearchPage';
+import Orders from './pages/Store/Orders';
+import Wishlist from './pages/Store/Wishlist';
 
 // Admin Pages
 import AdminLogin from './pages/Admin/Login';
@@ -80,14 +82,14 @@ function App() {
                                 <Route path="search" element={<ProductSearchPage />} />
                                 <Route path=":id" element={<ProductDetail />} />
                             </Route>
-                            <Route path="store/orders" element={
+                            <Route path="orders" element={
                                 <UserProtectedRoute>
-                                    <div>訂單記錄頁面</div>
+                                    <Orders />
                                 </UserProtectedRoute>
                             } />
-                            <Route path="store/wishlist" element={
+                            <Route path="wishlist" element={
                                 <UserProtectedRoute>
-                                    <div>收藏清單頁面</div>
+                                    <Wishlist />
                                 </UserProtectedRoute>
                             } />
                             <Route path="store/cart" element={

@@ -21,11 +21,13 @@ import {
     Drawer,
     useMediaQuery,
     useTheme,
+    Snackbar,
 } from '@mui/material';
 import {
     Sort as SortIcon,
     ShoppingCart as CartIcon,
     Favorite as FavoriteIcon,
+    FavoriteBorder as FavoriteBorderIcon,
     Close as CloseIcon,
 } from '@mui/icons-material';
 import { createAuthAxios } from '../../utils/auth';
@@ -54,6 +56,12 @@ const Products = () => {
     const [page, setPage] = useState(1);
     const [total, setTotal] = useState(0);
     const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+    const [wishlist, setWishlist] = useState([]);
+    const [snackbar, setSnackbar] = useState({
+        open: false,
+        message: '',
+        severity: 'success'
+    });
 
     const authAxios = useMemo(() => createAuthAxios(navigate), [navigate]);
 
@@ -144,6 +152,23 @@ const Products = () => {
         fetchCategories();
     }, [fetchCategories]);
 
+    // 獲取收藏列表
+    const fetchWishlist = useCallback(async () => {
+        try {
+            const response = await authAxios.get(process.env.REACT_APP_USER_SERVICE_URL + `/api/v1/wishlist/ids`);
+            if (response.data.success) {
+                setWishlist(response.data.data.wishlistIds || []);
+            }
+        } catch (error) {
+            console.error('獲取收藏列表失敗:', error);
+        }
+    }, [authAxios]);
+
+    // 在組件載入時獲取收藏列表
+    useEffect(() => {
+        fetchWishlist();
+    }, [fetchWishlist]);
+
     // 監聽參數變化
     useEffect(() => {
         fetchProducts();
@@ -163,6 +188,98 @@ const Products = () => {
     const handlePageChange = (event, value) => {
         setPage(value);
         window.scrollTo(0, 0);
+    };
+
+    // 判斷商品是否已收藏
+    const isProductInWishlist = (productId) => {
+        return wishlist.includes(productId);
+    };
+
+    // 添加或移除收藏
+    const handleToggleWishlist = async (productId, event) => {
+        event.stopPropagation();
+
+        try {
+            if (isProductInWishlist(productId)) {
+                // 從收藏中移除
+                const response = await authAxios.delete(process.env.REACT_APP_USER_SERVICE_URL + `/api/v1/wishlist/${productId}`);
+                if (response.data.success) {
+                    setWishlist(wishlist.filter(id => id !== productId));
+                    setSnackbar({
+                        open: true,
+                        message: '已從收藏清單移除',
+                        severity: 'success'
+                    });
+                } else {
+                    setSnackbar({
+                        open: true,
+                        message: response.data.message || '移除收藏失敗',
+                        severity: 'error'
+                    });
+                }
+            } else {
+                // 添加到收藏
+                const response = await authAxios.post(process.env.REACT_APP_USER_SERVICE_URL + `/api/v1/wishlist`, {
+                    productId
+                });
+                if (response.data.success) {
+                    setWishlist([...wishlist, productId]);
+                    setSnackbar({
+                        open: true,
+                        message: '已添加至收藏清單',
+                        severity: 'success'
+                    });
+                } else {
+                    setSnackbar({
+                        open: true,
+                        message: response.data.message || '添加收藏失敗',
+                        severity: 'error'
+                    });
+                }
+            }
+        } catch (error) {
+            setSnackbar({
+                open: true,
+                message: error.response?.data?.message || '操作失敗',
+                severity: 'error'
+            });
+        }
+    };
+
+    // 添加到購物車
+    const handleAddToCart = async (productId, event) => {
+        event.stopPropagation();
+
+        try {
+            const response = await authAxios.post(process.env.REACT_APP_CART_SERVICE_URL + `/api/v1/cart/items`, {
+                productId,
+                quantity: 1
+            });
+
+            if (response.data.success) {
+                setSnackbar({
+                    open: true,
+                    message: '已添加至購物車',
+                    severity: 'success'
+                });
+            } else {
+                setSnackbar({
+                    open: true,
+                    message: response.data.message || '添加至購物車失敗',
+                    severity: 'error'
+                });
+            }
+        } catch (error) {
+            setSnackbar({
+                open: true,
+                message: error.response?.data?.message || '無法添加至購物車',
+                severity: 'error'
+            });
+        }
+    };
+
+    const handleCloseSnackbar = () => {
+        setSnackbar({ ...snackbar, open: false });
     };
 
     const FilterDrawerContent = () => (
@@ -274,8 +391,6 @@ const Products = () => {
                 </Grid>
             </Paper>
 
-
-
             {/* 錯誤提示 */}
             {error && (
                 <Alert severity="error" sx={{ mb: 2 }}>
@@ -295,7 +410,7 @@ const Products = () => {
             ) : (
                 <Grid container spacing={2}>
                     {products.map((product) => (
-                        <Grid item key={product.id} xs={12} sm={6} md={4} lg={3}>
+                        <Grid item key={product.id || product._id} xs={12} sm={6} md={4} lg={3}>
                             <Card
                                 sx={{
                                     height: '100%',
@@ -313,7 +428,7 @@ const Products = () => {
                                     image={product.images?.[0]?.url || '/placeholder.png'}
                                     alt={product.name}
                                     sx={{ objectFit: 'contain', p: 2 }}
-                                    onClick={() => navigate(`/store/products/${product.id}`)}
+                                    onClick={() => navigate(`/store/products/${product.id || product._id}`)}
                                 />
                                 <CardContent sx={{ flexGrow: 1 }}>
                                     <Typography gutterBottom variant="h6" component="h2">
@@ -323,10 +438,19 @@ const Products = () => {
                                         NT$ {product.price.toLocaleString()}
                                     </Typography>
                                     <Stack direction="row" spacing={1} justifyContent="flex-end">
-                                        <IconButton size="small" color="primary">
-                                            <FavoriteIcon />
+                                        <IconButton
+                                            size="small"
+                                            color="primary"
+                                            onClick={(e) => handleToggleWishlist(product.id || product._id, e)}
+                                        >
+                                            {isProductInWishlist(product.id || product._id) ?
+                                                <FavoriteIcon /> : <FavoriteBorderIcon />}
                                         </IconButton>
-                                        <IconButton size="small" color="primary">
+                                        <IconButton
+                                            size="small"
+                                            color="primary"
+                                            onClick={(e) => handleAddToCart(product.id || product._id, e)}
+                                        >
                                             <CartIcon />
                                         </IconButton>
                                     </Stack>
@@ -363,6 +487,14 @@ const Products = () => {
                 </Box>
                 <FilterDrawerContent />
             </Drawer>
+
+            {/* 提示消息 */}
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={3000}
+                onClose={handleCloseSnackbar}
+                message={snackbar.message}
+            />
         </Container>
     );
 };
