@@ -1,7 +1,14 @@
 {
     "short_name": "訂單管理系統",
     "name": "訂單管理系統",
-    "icons": [],
+    "icons": [
+        {
+            "src": "image.png",
+            "sizes": "512x512 192x192 64x64 32x32 24x24 16x16",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
     "start_url": ".",
     "display": "standalone",
     "theme_color": "#000000",
