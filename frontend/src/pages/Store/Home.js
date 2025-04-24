@@ -21,6 +21,7 @@ import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import { useNavigate } from 'react-router-dom';
 import { createAuthAxios } from '../../utils/auth';
+import axios from 'axios';
 
 const StyledCard = styled(Card)(({ theme }) => ({
     height: '100%',
@@ -169,9 +170,16 @@ const StorePage = () => {
     const [featuredProducts, setFeaturedProducts] = useState([]);
     const [favorites, setFavorites] = useState({});
     const [alert, setAlert] = useState({ open: false, message: '', severity: 'success' });
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
 
     // 創建授權axios客戶端
     const authAxios = React.useMemo(() => createAuthAxios(navigate), [navigate]);
+
+    // 檢查用戶是否已登入
+    useEffect(() => {
+        const userToken = localStorage.getItem('userToken');
+        setIsLoggedIn(!!userToken);
+    }, []);
 
     // 顯示提示消息
     const showAlert = useCallback((message, severity = 'success') => {
@@ -187,8 +195,10 @@ const StorePage = () => {
         setAlert(prev => ({ ...prev, open: false }));
     }, []);
 
-    // 獲取收藏清單 - 非同步加載，不阻塞頁面顯示
+    // 獲取收藏清單 - 非同步加載，不阻塞頁面顯示，且僅在用戶已登入時執行
     const fetchWishlist = useCallback(async () => {
+        if (!isLoggedIn) return;
+
         try {
             const response = await authAxios.get(`${USER_SERVICE_URL}/api/v1/wishlist/`);
             if (response.data && response.data.success && response.data.data && response.data.data.wishlist) {
@@ -201,14 +211,16 @@ const StorePage = () => {
             }
         } catch (error) {
             console.error('Error fetching wishlist:', error);
+            // 這裡不再跳轉到登入頁面
         }
-    }, [authAxios]);
+    }, [authAxios, isLoggedIn]);
 
-    // 先加載商品數據
+    // 先加載商品數據 - 使用普通 axios 實例獲取商品，不需要登入
     useEffect(() => {
         const fetchProducts = async () => {
             try {
-                const response = await authAxios.get(`${PRODUCT_SERVICE_URL}/api/v1/products/`, {
+                // 使用普通 axios 實例，不需要權限即可獲取商品列表
+                const response = await axios.get(`${PRODUCT_SERVICE_URL}/api/v1/products/`, {
                     params: {
                         page: 1,
                         limit: 10
@@ -225,23 +237,28 @@ const StorePage = () => {
                 setFeaturedProducts(sortedProducts.slice(0, 5));
             } catch (error) {
                 console.error('Error fetching products:', error);
-                if (error.response?.status === 401) {
-                    navigate('/login');
-                }
+                // 不再跳轉到登入頁面，只顯示錯誤訊息
+                showAlert('無法載入商品，請稍後再試', 'error');
             } finally {
                 setLoading(false);
 
-                // 頁面加載完成後再加載收藏狀態
+                // 頁面加載完成後再加載收藏狀態（如果已登入）
                 fetchWishlist();
             }
         };
 
         fetchProducts();
-    }, [navigate, authAxios, fetchWishlist]);
+    }, [navigate, fetchWishlist, showAlert]);
 
-    // 添加到收藏
+    // 添加到收藏 - 檢查登入狀態
     const handleToggleFavorite = useCallback(async (e, productId) => {
         e.stopPropagation(); // 阻止事件冒泡到卡片點擊事件
+
+        // 如果未登入，提示用戶登入
+        if (!isLoggedIn) {
+            showAlert('請先登入才能使用收藏功能', 'info');
+            return;
+        }
 
         try {
             if (favorites[productId]) {
@@ -261,11 +278,17 @@ const StorePage = () => {
             console.error('Error toggling favorite:', error);
             showAlert('操作失敗，請稍後再試', 'error');
         }
-    }, [authAxios, favorites, showAlert]);
+    }, [authAxios, favorites, showAlert, isLoggedIn]);
 
-    // 添加到購物車
+    // 添加到購物車 - 檢查登入狀態
     const handleAddToCart = useCallback(async (e, productId) => {
         e.stopPropagation(); // 阻止事件冒泡到卡片點擊事件
+
+        // 如果未登入，提示用戶登入
+        if (!isLoggedIn) {
+            showAlert('請先登入才能使用購物車功能', 'info');
+            return;
+        }
 
         try {
             await authAxios.post(`${CART_SERVICE_URL}/api/v1/cart/items`, {
@@ -277,7 +300,7 @@ const StorePage = () => {
             console.error('Error adding to cart:', error);
             showAlert('加入購物車失敗', 'error');
         }
-    }, [authAxios, showAlert]);
+    }, [authAxios, showAlert, isLoggedIn]);
 
     // 自動輪播
     useEffect(() => {

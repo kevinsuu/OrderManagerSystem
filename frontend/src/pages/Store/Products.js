@@ -31,6 +31,7 @@ import {
     Close as CloseIcon,
 } from '@mui/icons-material';
 import { createAuthAxios } from '../../utils/auth';
+import axios from 'axios';
 
 const ITEMS_PER_PAGE = 12;
 const PRICE_MARKS = [
@@ -62,8 +63,15 @@ const Products = () => {
         message: '',
         severity: 'success'
     });
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
 
     const authAxios = useMemo(() => createAuthAxios(navigate), [navigate]);
+
+    // 檢查用戶是否已登入
+    useEffect(() => {
+        const userToken = localStorage.getItem('userToken');
+        setIsLoggedIn(!!userToken);
+    }, []);
 
     // 從 URL 獲取參數
     useEffect(() => {
@@ -102,7 +110,7 @@ const Products = () => {
         });
     }, [navigate, searchTerm, selectedCategory, sortBy, page, priceRange]);
 
-    // 使用 useCallback 包裝 fetchProducts
+    // 使用 useCallback 包裝 fetchProducts，改為使用普通 axios
     const fetchProducts = useCallback(async () => {
         setLoading(true);
         try {
@@ -113,7 +121,8 @@ const Products = () => {
             if (selectedCategory !== 'all') params.set('category', selectedCategory);
             if (sortBy !== 'default') params.set('sort', sortBy);
 
-            const response = await authAxios.get(process.env.REACT_APP_PRODUCT_SERVICE_URL + `/api/v1/products/?${params.toString()}`);
+            // 使用普通 axios 獲取產品資訊
+            const response = await axios.get(process.env.REACT_APP_PRODUCT_SERVICE_URL + `/api/v1/products/?${params.toString()}`);
 
             if (response.data.success) {
                 setProducts(response.data.data.products);
@@ -127,12 +136,12 @@ const Products = () => {
         } finally {
             setLoading(false);
         }
-    }, [authAxios, page, searchTerm, selectedCategory, sortBy]);
+    }, [page, searchTerm, selectedCategory, sortBy]);
 
-    // 新增獲取類別的函數
+    // 新增獲取類別的函數 - 同樣使用普通 axios
     const fetchCategories = useCallback(async () => {
         try {
-            const response = await authAxios.get(process.env.REACT_APP_PRODUCT_SERVICE_URL + '/api/v1/categories/');
+            const response = await axios.get(process.env.REACT_APP_PRODUCT_SERVICE_URL + '/api/v1/categories/');
 
             // 檢查回應是否為陣列
             if (Array.isArray(response.data)) {
@@ -145,15 +154,17 @@ const Products = () => {
             console.error('獲取類別失敗:', error);
             setCategories([]);
         }
-    }, [authAxios]);
+    }, []);
 
     // 在組件載入時獲取類別
     useEffect(() => {
         fetchCategories();
     }, [fetchCategories]);
 
-    // 獲取收藏列表
+    // 獲取收藏列表，只有在用戶登入時執行
     const fetchWishlist = useCallback(async () => {
+        if (!isLoggedIn) return;
+
         try {
             const response = await authAxios.get(process.env.REACT_APP_USER_SERVICE_URL + `/api/v1/wishlist/ids`);
             if (response.data.success) {
@@ -161,8 +172,9 @@ const Products = () => {
             }
         } catch (error) {
             console.error('獲取收藏列表失敗:', error);
+            // 不需要跳轉到登入頁面
         }
-    }, [authAxios]);
+    }, [authAxios, isLoggedIn]);
 
     // 在組件載入時獲取收藏列表
     useEffect(() => {
@@ -195,9 +207,19 @@ const Products = () => {
         return wishlist.includes(productId);
     };
 
-    // 添加或移除收藏
+    // 添加或移除收藏 - 檢查登入狀態
     const handleToggleWishlist = async (productId, event) => {
         event.stopPropagation();
+
+        // 檢查是否已登入
+        if (!isLoggedIn) {
+            setSnackbar({
+                open: true,
+                message: '請先登入才能使用收藏功能',
+                severity: 'info'
+            });
+            return;
+        }
 
         try {
             if (isProductInWishlist(productId)) {
@@ -246,9 +268,19 @@ const Products = () => {
         }
     };
 
-    // 添加到購物車
+    // 添加到購物車 - 檢查登入狀態
     const handleAddToCart = async (productId, event) => {
         event.stopPropagation();
+
+        // 檢查是否已登入
+        if (!isLoggedIn) {
+            setSnackbar({
+                open: true,
+                message: '請先登入才能使用購物車功能',
+                severity: 'info'
+            });
+            return;
+        }
 
         try {
             const response = await authAxios.post(process.env.REACT_APP_CART_SERVICE_URL + `/api/v1/cart/items`, {
@@ -265,14 +297,14 @@ const Products = () => {
             } else {
                 setSnackbar({
                     open: true,
-                    message: response.data.message || '添加至購物車失敗',
+                    message: response.data.message || '添加購物車失敗',
                     severity: 'error'
                 });
             }
         } catch (error) {
             setSnackbar({
                 open: true,
-                message: error.response?.data?.message || '無法添加至購物車',
+                message: error.response?.data?.message || '添加購物車失敗',
                 severity: 'error'
             });
         }

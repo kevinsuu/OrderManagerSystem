@@ -30,6 +30,7 @@ import {
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
 import { createAuthAxios } from '../../utils/auth';
+import axios from 'axios';
 
 // 服務URL常量
 const PRODUCT_SERVICE_URL = process.env.REACT_APP_PRODUCT_SERVICE_URL || 'https://ordermanagersystem-product-service.onrender.com';
@@ -100,9 +101,16 @@ const ProductDetail = () => {
     const [alertSeverity, setAlertSeverity] = useState('success');
     const [isFavorite, setIsFavorite] = useState(false);
     const [categoryInfo, setCategoryInfo] = useState(null);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
 
     // 創建授權axios客戶端
     const authAxios = React.useMemo(() => createAuthAxios(navigate), [navigate]);
+
+    // 檢查用戶是否已登入
+    useEffect(() => {
+        const userToken = localStorage.getItem('userToken');
+        setIsLoggedIn(!!userToken);
+    }, []);
 
     // 成功消息顯示
     const showSuccessMessage = useCallback((message) => {
@@ -118,8 +126,10 @@ const ProductDetail = () => {
         setAlertOpen(true);
     }, []);
 
-    // 檢查商品是否在收藏列表中
+    // 檢查商品是否在收藏列表中 - 僅在用戶已登入時
     const checkIfFavorite = useCallback(async (productId) => {
+        if (!isLoggedIn) return;
+
         try {
             const response = await authAxios.get(`${process.env.REACT_APP_USER_SERVICE_URL}/api/v1/wishlist/`);
             if (response.data && response.data.success && response.data.data && response.data.data.wishlist) {
@@ -129,20 +139,22 @@ const ProductDetail = () => {
             }
         } catch (err) {
             console.error('檢查收藏狀態失敗:', err);
+            // 不處理錯誤，只是不顯示收藏狀態
         }
-    }, [authAxios]);
+    }, [authAxios, isLoggedIn]);
 
     // 頁面載入時滾動到頂部
     useEffect(() => {
         window.scrollTo(0, 0);
     }, [id]);
 
-    // 獲取商品詳情
+    // 獲取商品詳情 - 使用普通axios，不需要授權
     useEffect(() => {
         const fetchProductDetail = async () => {
             setLoading(true);
             try {
-                const response = await authAxios.get(`${PRODUCT_SERVICE_URL}/api/v1/products/${id}`);
+                // 使用普通axios獲取商品詳情
+                const response = await axios.get(`${PRODUCT_SERVICE_URL}/api/v1/products/${id}`);
 
                 // 檢查API響應格式
                 if (response.data && response.data.data) {
@@ -160,17 +172,23 @@ const ProductDetail = () => {
         };
 
         fetchProductDetail();
-    }, [id, authAxios, showErrorMessage]);
+    }, [id, showErrorMessage]);
 
-    // 檢查收藏狀態
+    // 檢查收藏狀態 - 僅在已登入時執行
     useEffect(() => {
-        if (id) {
+        if (id && isLoggedIn) {
             checkIfFavorite(id);
         }
-    }, [id, checkIfFavorite]);
+    }, [id, checkIfFavorite, isLoggedIn]);
 
-    // 處理收藏切換
+    // 處理收藏切換 - 加入登入檢查
     const handleToggleFavorite = async () => {
+        // 如果未登入，提示用戶
+        if (!isLoggedIn) {
+            showErrorMessage('請先登入才能使用收藏功能');
+            return;
+        }
+
         try {
             if (isFavorite) {
                 await authAxios.delete(`${process.env.REACT_APP_USER_SERVICE_URL}/api/v1/wishlist/${id}`);
@@ -188,7 +206,7 @@ const ProductDetail = () => {
         }
     };
 
-    // 處理數量變更
+    // 處理數量變更 - 保持不變
     const handleQuantityChange = (event) => {
         const value = parseInt(event.target.value, 10);
         if (!isNaN(value)) {
@@ -200,7 +218,7 @@ const ProductDetail = () => {
         }
     };
 
-    // 增減數量
+    // 增減數量 - 保持不變
     const increaseQuantity = () => {
         if (product && product.stock && quantity < product.stock) {
             setQuantity(quantity + 1);
@@ -215,8 +233,14 @@ const ProductDetail = () => {
         }
     };
 
-    // 添加到購物車
+    // 添加到購物車 - 加入登入檢查
     const addToCart = async () => {
+        // 如果未登入，提示用戶
+        if (!isLoggedIn) {
+            showErrorMessage('請先登入才能使用購物車功能');
+            return;
+        }
+
         try {
             await authAxios.post(`${CART_SERVICE_URL}/api/v1/cart/items`, {
                 productId: id,
@@ -229,60 +253,51 @@ const ProductDetail = () => {
         }
     };
 
-    // 處理標籤切換
+    // 處理標籤切換 - 保持不變
     const handleTabChange = (event, newValue) => {
         setTabValue(newValue);
     };
 
-    // 返回上一頁
+    // 返回上一頁 - 保持不變
     const handleGoBack = () => {
         navigate(-1);
     };
 
-    // 處理分類詳情獲取
+    // 處理分類詳情獲取 - 使用普通axios
     useEffect(() => {
         const fetchCategoryDetail = async () => {
             if (product && product.category && typeof product.category === 'string') {
                 try {
                     console.log('正在獲取分類詳情...');
-                    const response = await authAxios.get(`${PRODUCT_SERVICE_URL}/api/v1/categories/${product.category}`);
+                    // 使用普通axios獲取分類詳情
+                    const response = await axios.get(`${PRODUCT_SERVICE_URL}/api/v1/categories/${product.category}`);
                     console.log('分類詳情:', response.data);
                     if (response.data) {
                         setCategoryInfo(response.data);
                     }
                 } catch (err) {
                     console.error('獲取分類詳情失敗:', err);
+                    // 不處理錯誤，只不顯示分類
                 }
             }
         };
 
-        if (product) {
-            fetchCategoryDetail();
-        }
-    }, [product, authAxios]);
+        fetchCategoryDetail();
+    }, [product]);
 
-    // 更新渲染分類的函數
+    // 渲染分類 - 保持不變
     const renderCategory = () => {
-        if (!product.category) return null;
+        if (!product) return null;
 
-        let categoryName = '未知分類';
-
-        // 處理不同的資料結構
-        if (typeof product.category === 'object' && product.category.name) {
-            categoryName = product.category.name;
-        } else if (categoryInfo && categoryInfo.name) {
-            // 使用從API獲取的分類資訊
-            categoryName = categoryInfo.name;
-        } else if (typeof product.category === 'string') {
-            // 如果還沒獲取到分類詳情，顯示ID
-            categoryName = product.category;
+        if (categoryInfo && categoryInfo.name) {
+            return (
+                <Typography variant="body2" color="text.secondary">
+                    類別: {categoryInfo.name}
+                </Typography>
+            );
         }
 
-        return (
-            <Typography variant="subtitle2" color="text.secondary">
-                分類: {categoryName}
-            </Typography>
-        );
+        return null;
     };
 
     if (loading) {

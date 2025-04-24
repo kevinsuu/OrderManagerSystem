@@ -42,21 +42,14 @@ const ProductSearchPage = () => {
             try {
                 setLoading(true);
                 setError(null);
-                const token = localStorage.getItem('userToken');
+                // 移除token要求，使用公開API
                 const apiUrl = `${PRODUCT_SERVICE_URL}/api/v1/products/search?query=${encodeURIComponent(query)}&page=${page}&limit=${limit}`;
 
                 console.log('=== API 請求 ===');
                 console.log('API URL:', apiUrl);
-                console.log('Token:', token ? '存在' : '不存在');
 
-                const response = await axios.get(
-                    apiUrl,
-                    {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    }
-                );
+                // 不帶token發送請求
+                const response = await axios.get(apiUrl);
 
                 console.log('=== API 響應 ===');
                 console.log('Response:', response.data);
